@@ -48,7 +48,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         suppressHydrationWarning
         className={`${inter.variable} font-sans antialiased min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white overflow-x-hidden`}
       >
-        <ClerkProvider appearance={optiopsClerkAppearance} afterSignOutUrl="/">
+        <ClerkProvider
+          publishableKey={clerkPk}
+          appearance={optiopsClerkAppearance}
+          afterSignOutUrl="/"
+        >
           <QueryProvider>
             <AppShell>{children}</AppShell>
             <Toaster
