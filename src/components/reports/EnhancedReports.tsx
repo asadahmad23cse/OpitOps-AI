@@ -11,7 +11,7 @@ import {
   Filter,
   ChevronDown,
   Shield,
-  DollarSign,
+  IndianRupee,
   Zap,
   TrendingUp,
   AlertTriangle,
@@ -35,7 +35,7 @@ import type { Report, ReportType, ReportStatus } from '@/types';
 
 const typeConfig: Record<ReportType, { icon: typeof Shield; color: string; bg: string; border: string; label: string }> = {
   optimization: { icon: Zap, color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', label: 'Optimization' },
-  cost: { icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', label: 'Cost' },
+  cost: { icon: IndianRupee, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', label: 'Cost' },
   security: { icon: Shield, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30', label: 'Security' },
   performance: { icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/30', label: 'Performance' },
 };
@@ -221,7 +221,7 @@ export function EnhancedReports() {
                         color={report.score >= 80 ? 'text-emerald-400' : report.score >= 60 ? 'text-amber-400' : 'text-red-400'}
                       />
                       <MetricCell
-                        icon={DollarSign}
+                        icon={IndianRupee}
                         label="Estimated Savings"
                         value={formatCurrency(report.savingsEstimate)}
                         color="text-emerald-400"
@@ -368,7 +368,7 @@ function ReportDetail({ report, onExport }: { report: Report; onExport: (r: Repo
         <FindingSection
           title="Cost Opportunities"
           items={report.costOpportunities}
-          icon={DollarSign}
+          icon={IndianRupee}
           color="text-emerald-400"
           bg="bg-emerald-500/10"
           border="border-emerald-500/20"

@@ -20,6 +20,23 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const clerkPk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
+  if (!clerkPk) {
+    return (
+      <html lang="en" className="dark">
+        <body className="min-h-screen bg-gray-950 text-gray-100 p-8 font-sans antialiased">
+          <h1 className="text-xl font-bold text-amber-400">Clerk configuration missing</h1>
+          <p className="mt-3 text-gray-300 max-w-lg">
+            <code className="text-cyan-300">NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> is not set at
+            <strong> build time</strong>. In Netlify go to{" "}
+            <strong>Project configuration → Environment variables</strong>, add the key, then{" "}
+            <strong>Deploys → Trigger deploy → Clear cache and deploy site</strong>.
+          </p>
+        </body>
+      </html>
+    );
+  }
+
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>

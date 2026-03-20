@@ -1,10 +1,11 @@
 import Groq from "groq-sdk";
 import { NextResponse } from "next/server";
+import { buildLiveSystemContext } from "@/lib/context-builder";
 
 export const runtime = "nodejs";
 
 const SYSTEM_PROMPT =
-  "You are an AI assistant for OptiOps AI, a DevOps/SRE dashboard. You help users understand their infrastructure health, alerts, deployments, costs, and logs. Be concise and technical.";
+  "You are an AI assistant for OptiOps AI, a DevOps/SRE dashboard. You help users understand their infrastructure health, alerts, deployments, costs (in Indian Rupees / INR), and logs. Be concise and technical.";
 
 const MODEL = "llama-3.3-70b-versatile";
 
@@ -67,7 +68,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const groqMessages: GroqMessage[] = [{ role: "system", content: SYSTEM_PROMPT }, ...normalized];
+  const origin = new URL(req.url).origin;
+  const cookieHeader = req.headers.get("cookie");
+  const liveContext = await buildLiveSystemContext(origin, cookieHeader);
+  const systemPrompt = `${SYSTEM_PROMPT}\n\n${liveContext}`;
+
+  const groqMessages: GroqMessage[] = [{ role: "system", content: systemPrompt }, ...normalized];
 
   const groq = new Groq({ apiKey });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { DollarSign, TrendingDown, TrendingUp, Download, Filter } from 'lucide-react';
+import { IndianRupee, TrendingDown, TrendingUp, Download, Filter } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useCost } from '@/hooks/use-infrastructure';
 import { CardSkeleton } from '@/components/ui/Skeleton';
@@ -20,7 +20,7 @@ export function CostOptimization() {
   if (!cost) return null;
 
   const chartData = cost.dailyCosts.slice(-14).map(d => ({
-    date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    date: new Date(d.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
     cost: Math.round(d.cost),
   }));
 
@@ -46,7 +46,7 @@ export function CostOptimization() {
 
       <div className="grid grid-cols-3 gap-6">
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-3"><DollarSign className="w-4 h-4 text-gray-400" /><span className="text-xs text-gray-400">Current Month</span></div>
+          <div className="flex items-center gap-2 mb-3"><IndianRupee className="w-4 h-4 text-gray-400" /><span className="text-xs text-gray-400">Current Month</span></div>
           <p className="text-3xl font-bold text-white">{formatCurrency(cost.currentMonth)}</p>
           <div className="flex items-center gap-1 mt-2 text-xs"><TrendingDown className="w-3 h-3 text-emerald-400" /><span className="text-emerald-400">{Math.abs(cost.trend)}% vs last month</span></div>
         </div>
@@ -56,7 +56,7 @@ export function CostOptimization() {
           <p className="text-xs text-gray-500 mt-2">by month end</p>
         </div>
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-3"><DollarSign className="w-4 h-4 text-emerald-400" /><span className="text-xs text-gray-400">Potential Savings</span></div>
+          <div className="flex items-center gap-2 mb-3"><IndianRupee className="w-4 h-4 text-emerald-400" /><span className="text-xs text-gray-400">Potential Savings</span></div>
           <p className="text-3xl font-bold text-emerald-400">{formatCurrency(cost.potentialSavings)}</p>
           <p className="text-xs text-emerald-400 mt-2">{cost.savingsPercentage}</p>
         </div>
@@ -69,8 +69,8 @@ export function CostOptimization() {
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} width={40} tickFormatter={v => `$${v}`} />
-              <Tooltip contentStyle={{ background: 'rgba(17,24,39,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '12px' }} formatter={(v) => [`$${v}`, 'Cost']} />
+              <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} width={52} tickFormatter={v => formatCurrency(Number(v))} />
+              <Tooltip contentStyle={{ background: 'rgba(17,24,39,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '12px' }} formatter={(v) => [formatCurrency(Number(v)), 'Cost']} />
               <Bar dataKey="cost" fill="#06b6d4" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

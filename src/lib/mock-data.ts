@@ -200,41 +200,41 @@ export function getDeploymentsSummary(): DeploymentsSummary {
   return computeDeploymentsSummary(deployments);
 }
 
-// ── Cost ─────────────────────────────────────────────────────
+// ── Cost (amounts in Indian Rupees, INR) ─────────────────────
 export const costSnapshot: CostSnapshot = {
-  currentMonth: 2847,
-  projected: 5124,
-  potentialSavings: 512,
+  currentMonth: 2_36_301, // ≈ prior USD mock × 83
+  projected: 4_25_292,
+  potentialSavings: 42_496,
   trend: -4.2,
   savingsPercentage: '18% reduction',
   services: [
-    { service: 'AWS EC2', cost: 1245, trend: -2.1, icon: 'server' },
-    { service: 'RDS Databases', cost: 892, trend: 1.3, icon: 'database' },
-    { service: 'Data Transfer', cost: 710, trend: -5.4, icon: 'network' },
+    { service: 'AWS EC2', cost: 1_03_335, trend: -2.1, icon: 'server' },
+    { service: 'RDS Databases', cost: 74_036, trend: 1.3, icon: 'database' },
+    { service: 'Data Transfer', cost: 58_930, trend: -5.4, icon: 'network' },
   ],
   lastUpdated: minutesAgo(5),
   dailyCosts: Array.from({ length: 30 }, (_, i) => ({
     date: daysAgo(29 - i),
-    cost: 80 + Math.random() * 40,
+    cost: Math.round((80 + Math.random() * 40) * 83),
   })),
 };
 
 // ── Recommendations ──────────────────────────────────────────
 export const recommendations: Recommendation[] = [
   {
-    id: 'REC-001', title: 'Enable Auto-scaling', impact: 'high', estimatedSavings: 340,
+    id: 'REC-001', title: 'Enable Auto-scaling', impact: 'high', estimatedSavings: 28_220,
     performanceImprovement: '+25% throughput', difficulty: 'medium',
     category: 'Performance', description: 'Configure horizontal pod autoscaler for API Gateway to handle traffic spikes without over-provisioning.',
     status: 'pending', createdAt: daysAgo(3),
   },
   {
-    id: 'REC-002', title: 'Right-size EC2 Instances', impact: 'high', estimatedSavings: 156,
+    id: 'REC-002', title: 'Right-size EC2 Instances', impact: 'high', estimatedSavings: 12_948,
     performanceImprovement: 'No degradation', difficulty: 'easy',
     category: 'Cost', description: 'Analysis shows 3 instances running at <20% average CPU. Downsize from m5.xlarge to m5.large.',
     status: 'pending', createdAt: daysAgo(5),
   },
   {
-    id: 'REC-003', title: 'Use Reserved Instances', impact: 'medium', estimatedSavings: 72,
+    id: 'REC-003', title: 'Use Reserved Instances', impact: 'medium', estimatedSavings: 5_976,
     performanceImprovement: 'None', difficulty: 'easy',
     category: 'Cost', description: 'Convert 5 on-demand instances to 1-year reserved instances for predictable workloads.',
     status: 'pending', createdAt: daysAgo(7),
@@ -246,7 +246,7 @@ export const recommendations: Recommendation[] = [
     status: 'in_progress', createdAt: daysAgo(10),
   },
   {
-    id: 'REC-005', title: 'Optimize Database Connection Pooling', impact: 'medium', estimatedSavings: 45,
+    id: 'REC-005', title: 'Optimize Database Connection Pooling', impact: 'medium', estimatedSavings: 3_735,
     performanceImprovement: '+15% query throughput', difficulty: 'easy',
     category: 'Performance', description: 'Current pool size is undersized. Increase from 10 to 25 connections per service.',
     status: 'applied', createdAt: daysAgo(14),
@@ -267,15 +267,15 @@ export const activityEvents: ActivityEvent[] = [
   { id: 'act-01', type: 'deployment', title: 'Deployed API Gateway v2.4.1 to Production', description: 'Healthy • 4m 32s duration', user: 'Alex Chen', timestamp: minutesAgo(10), metadata: { environment: 'Production', service: 'API Gateway' } },
   { id: 'act-02', type: 'alert', title: 'Database Connection Pool Exhausted', description: 'Sarah Kim • P1 Priority', user: 'System', timestamp: minutesAgo(15), metadata: { severity: 'critical', incidentCode: 'INC-2847' } },
   { id: 'act-03', type: 'config_change', title: 'Updated Auto-scaling Configuration', description: 'Min: 5 → Max: 12 → 16 pods', user: 'Mike Johnson', timestamp: hoursAgo(1), metadata: { service: 'Worker Service' } },
-  { id: 'act-04', type: 'recommendation', title: 'AI: Enable Redis Caching', description: 'Performance improvement: +28%', user: 'AI Engine', timestamp: hoursAgo(2), metadata: { impact: 'high', savings: '$0/mo' } },
-  { id: 'act-05', type: 'report', title: 'Generated Weekly Optimization Report', description: '3 recommendations • $839 potential savings', user: 'System', timestamp: hoursAgo(3), metadata: { reportId: 'RPT-045' } },
+  { id: 'act-04', type: 'recommendation', title: 'AI: Enable Redis Caching', description: 'Performance improvement: +28%', user: 'AI Engine', timestamp: hoursAgo(2), metadata: { impact: 'high', savings: '₹0/mo' } },
+  { id: 'act-05', type: 'report', title: 'Generated Weekly Optimization Report', description: '3 recommendations • ₹69,637 potential savings', user: 'System', timestamp: hoursAgo(3), metadata: { reportId: 'RPT-045' } },
   { id: 'act-06', type: 'deployment', title: 'Rolled back Worker Service v2.4.0', description: 'Automatically rolled back to v2.3.9', user: 'System', timestamp: hoursAgo(5), metadata: { environment: 'Production', service: 'Worker Service' } },
   { id: 'act-07', type: 'security_scan', title: 'Security Scan Completed', description: '2 medium findings • 0 critical', user: 'Security Scanner', timestamp: hoursAgo(8), metadata: { findings: '2' } },
   { id: 'act-08', type: 'config_change', title: 'Updated Connection Pool Settings', description: '10 → 20 connections', user: 'Lisa Wang', timestamp: daysAgo(1), metadata: { service: 'Payment Service' } },
   { id: 'act-09', type: 'incident_resolved', title: 'Resolved High Memory Usage', description: 'Resolution: Logs archived', user: 'Mike Johnson', timestamp: daysAgo(1), metadata: { duration: '4h 12m' } },
   { id: 'act-10', type: 'deployment', title: 'Deployed Auth Service v1.8.2 to Production', description: 'Healthy • 5m 12s duration', user: 'CI/CD Pipeline', timestamp: daysAgo(2), metadata: { environment: 'Production' } },
   { id: 'act-11', type: 'alert', title: 'API Latency Spike Resolved', description: 'Database index optimization applied', user: 'Alex Chen', timestamp: daysAgo(2), metadata: { severity: 'high' } },
-  { id: 'act-12', type: 'report', title: 'Monthly Cost Analysis Report', description: '$2,847 current month • $512 savings identified', user: 'System', timestamp: daysAgo(3), metadata: {} },
+  { id: 'act-12', type: 'report', title: 'Monthly Cost Analysis Report', description: '₹2,36,301 current month • ₹42,496 savings identified', user: 'System', timestamp: daysAgo(3), metadata: {} },
 ];
 
 // ── Logs ─────────────────────────────────────────────────────
@@ -298,20 +298,20 @@ export const logEntries: LogEntry[] = [
 export const reports: Report[] = [
   {
     id: 'RPT-045', title: 'Weekly Optimization Report', type: 'optimization', status: 'completed',
-    generatedAt: hoursAgo(3), generatedBy: 'AI Engine', score: 94, savingsEstimate: 839,
+    generatedAt: hoursAgo(3), generatedBy: 'AI Engine', score: 94,     savingsEstimate: 69_637,
     recommendationCount: 5,
-    summary: 'Overall infrastructure health is strong at 94/100. Three cost optimization opportunities identified totaling $839/month in potential savings.',
+    summary: 'Overall infrastructure health is strong at 94/100. Three cost optimization opportunities identified totaling ₹69,637/month in potential savings.',
     topRisks: ['Database connection pool nearing capacity', 'SSL certificate expiring in 14 days'],
-    costOpportunities: ['Right-size 3 EC2 instances (-$156/mo)', 'Convert to reserved instances (-$72/mo)', 'Enable auto-scaling (-$340/mo)'],
+    costOpportunities: ['Right-size 3 EC2 instances (-₹12,948/mo)', 'Convert to reserved instances (-₹5,976/mo)', 'Enable auto-scaling (-₹28,220/mo)'],
     performanceBottlenecks: ['API Gateway P99 latency trending upward', 'Cache hit rate below 85% target'],
     securityFindings: ['2 medium-severity compliance findings', 'Outdated TLS version on staging load balancer'],
     recommendations: ['Enable auto-scaling for API Gateway', 'Right-size EC2 instances', 'Renew SSL certificates', 'Update TLS configuration', 'Optimize connection pooling'],
   },
   {
     id: 'RPT-044', title: 'Monthly Cost Analysis', type: 'cost', status: 'completed',
-    generatedAt: daysAgo(3), generatedBy: 'System', score: 88, savingsEstimate: 512,
+    generatedAt: daysAgo(3), generatedBy: 'System', score: 88,     savingsEstimate: 42_496,
     recommendationCount: 3,
-    summary: 'Monthly cloud spend is $2,847, projected to reach $5,124 by month end. $512 in immediate savings identified.',
+    summary: 'Monthly cloud spend is ₹2,36,301, projected to reach ₹4,25,292 by month end. ₹42,496 in immediate savings identified.',
     topRisks: ['Projected 8% cost overrun vs budget'], costOpportunities: ['Reserved instance conversion', 'Right-sizing opportunities'],
     performanceBottlenecks: [], securityFindings: [],
     recommendations: ['Convert on-demand to reserved', 'Right-size underutilized instances', 'Review data transfer costs'],

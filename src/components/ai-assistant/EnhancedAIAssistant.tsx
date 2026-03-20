@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Send, Bot, User, Sparkles, AlertCircle, Rocket, DollarSign, Activity, Loader2 } from "lucide-react";
+import { Send, Bot, User, Sparkles, AlertCircle, Rocket, IndianRupee, Activity, Loader2 } from "lucide-react";
 
 interface Message {
   id: string;
@@ -14,7 +14,7 @@ interface Message {
 const suggestedPrompts = [
   { icon: AlertCircle, text: "Why did health score drop?", color: "text-red-400 bg-red-500/10" },
   { icon: AlertCircle, text: "Show critical alerts", color: "text-orange-400 bg-orange-500/10" },
-  { icon: DollarSign, text: "How can I reduce EC2 cost?", color: "text-emerald-400 bg-emerald-500/10" },
+  { icon: IndianRupee, text: "How can I reduce EC2 cost?", color: "text-emerald-400 bg-emerald-500/10" },
   { icon: Rocket, text: "Which deployment failed today?", color: "text-cyan-400 bg-cyan-500/10" },
   { icon: Activity, text: "Show infrastructure status", color: "text-blue-400 bg-blue-500/10" },
   { icon: Sparkles, text: "What optimizations are recommended?", color: "text-purple-400 bg-purple-500/10" },

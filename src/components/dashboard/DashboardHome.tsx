@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Sparkles, AlertCircle, Rocket, DollarSign, TrendingUp, CheckCircle2, Server, ArrowRight, Download, ChevronRight, Zap } from 'lucide-react';
+import { Sparkles, AlertCircle, Rocket, IndianRupee, TrendingUp, CheckCircle2, Server, ArrowRight, Download, ChevronRight, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useDashboard } from '@/hooks/use-dashboard';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
@@ -170,7 +170,7 @@ export function DashboardHome() {
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6 hover:border-white/20 transition-all duration-300">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-emerald-500/20"><DollarSign className="w-5 h-5 text-emerald-400" /></div>
+                <div className="p-2.5 rounded-lg bg-emerald-500/20"><IndianRupee className="w-5 h-5 text-emerald-400" /></div>
                 <div>
                   <h3 className="text-sm font-medium text-white">Cost Snapshot</h3>
                   <p className="text-xs text-gray-500">March 2026 MTD</p>
