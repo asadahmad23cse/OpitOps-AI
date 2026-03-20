@@ -3,7 +3,6 @@
 import { Search, Command } from 'lucide-react';
 import { NotificationsDropdown } from '@/components/notifications/NotificationsDropdown';
 import { UserMenu } from '@/components/user-menu/UserMenu';
-import { CommandPalette } from '@/components/command-palette/CommandPalette';
 
 export function Navbar() {
   const openPalette = () => {
@@ -31,7 +30,6 @@ export function Navbar() {
           </div>
         </div>
       </header>
-      <CommandPalette />
     </>
   );
 }

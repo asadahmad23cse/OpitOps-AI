@@ -174,18 +174,30 @@ export const deployments: Deployment[] = [
   },
 ];
 
-export function getDeploymentsSummary(): DeploymentsSummary {
+export function computeDeploymentsSummary(list: Deployment[]): DeploymentsSummary {
   const today = new Date().toDateString();
+  const withDuration = list.filter((d) => d.duration != null && d.duration > 0);
   return {
-    total: deployments.length,
-    running: deployments.filter(d => d.status === 'running').length,
-    success: deployments.filter(d => d.status === 'success').length,
-    failed: deployments.filter(d => d.status === 'failed').length,
-    rolledBack: deployments.filter(d => d.status === 'rolled_back').length,
-    queued: deployments.filter(d => d.status === 'queued').length,
-    completedToday: deployments.filter(d => d.completedAt && new Date(d.completedAt).toDateString() === today).length,
-    avgDuration: Math.round(deployments.filter(d => d.duration).reduce((s, d) => s + (d.duration || 0), 0) / deployments.filter(d => d.duration).length),
+    total: list.length,
+    running: list.filter((d) => d.status === "running").length,
+    success: list.filter((d) => d.status === "success").length,
+    failed: list.filter((d) => d.status === "failed").length,
+    rolledBack: list.filter((d) => d.status === "rolled_back").length,
+    queued: list.filter((d) => d.status === "queued").length,
+    completedToday: list.filter(
+      (d) => d.completedAt && new Date(d.completedAt).toDateString() === today,
+    ).length,
+    avgDuration:
+      withDuration.length > 0
+        ? Math.round(
+            withDuration.reduce((s, d) => s + (d.duration || 0), 0) / withDuration.length,
+          )
+        : 0,
   };
+}
+
+export function getDeploymentsSummary(): DeploymentsSummary {
+  return computeDeploymentsSummary(deployments);
 }
 
 // ── Cost ─────────────────────────────────────────────────────
@@ -320,7 +332,7 @@ export const notifications: Notification[] = [
   { id: 'not-01', type: 'alert', title: 'Critical Alert', message: 'Database Connection Pool Exhausted in Production', read: false, createdAt: minutesAgo(15), actionUrl: '/alerts' },
   { id: 'not-02', type: 'deployment', title: 'Deployment Complete', message: 'API Gateway v2.4.1 deployed to Production successfully', read: false, createdAt: minutesAgo(10), actionUrl: '/deployments' },
   { id: 'not-03', type: 'alert', title: 'High Severity Alert', message: 'Elevated Error Rate on Auth Service', read: false, createdAt: minutesAgo(45), actionUrl: '/alerts' },
-  { id: 'not-04', type: 'recommendation', title: 'New Recommendation', message: 'AI suggests enabling auto-scaling for +25% throughput', read: true, createdAt: hoursAgo(2), actionUrl: '/' },
+  { id: 'not-04', type: 'recommendation', title: 'New Recommendation', message: 'AI suggests enabling auto-scaling for +25% throughput', read: true, createdAt: hoursAgo(2), actionUrl: '/dashboard' },
   { id: 'not-05', type: 'report', title: 'Report Generated', message: 'Weekly Optimization Report is ready', read: true, createdAt: hoursAgo(3), actionUrl: '/reports' },
   { id: 'not-06', type: 'deployment', title: 'Deployment Failed', message: 'Payment Service v3.1.0 deployment failed in Staging', read: true, createdAt: hoursAgo(2), actionUrl: '/deployments' },
 ];
@@ -355,7 +367,7 @@ export const serviceMetrics: ServiceMetrics[] = [
 
 // ── Search Index ─────────────────────────────────────────────
 export const searchIndex: SearchResult[] = [
-  { id: 's-1', title: 'Dashboard', description: 'Overview of infrastructure health', category: 'page', icon: 'layout-dashboard', url: '/' },
+  { id: 's-1', title: 'Dashboard', description: 'Overview of infrastructure health', category: 'page', icon: 'layout-dashboard', url: '/dashboard' },
   { id: 's-2', title: 'Monitoring', description: 'Real-time performance metrics', category: 'page', icon: 'activity', url: '/monitoring' },
   { id: 's-3', title: 'Alerts', description: 'Manage system alerts and incidents', category: 'page', icon: 'alert-circle', url: '/alerts' },
   { id: 's-4', title: 'AI Assistant', description: 'DevOps AI helper', category: 'page', icon: 'bot', url: '/ai-assistant' },

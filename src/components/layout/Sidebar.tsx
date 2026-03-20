@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, Activity, Bot, FileText, ScrollText, Rocket, Server, Settings, AlertCircle } from 'lucide-react';
 
 const navItems = [
-  { id: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { id: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { id: '/monitoring', icon: Activity, label: 'Monitoring' },
   { id: '/alerts', icon: AlertCircle, label: 'Alerts' },
   { id: '/ai-assistant', icon: Bot, label: 'AI Assistant' },
@@ -23,7 +23,7 @@ export function Sidebar() {
     <aside className="w-64 h-screen fixed left-0 top-0 bg-black/40 backdrop-blur-xl border-r border-white/5 z-40">
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-white/5">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/dashboard" className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-emerald-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
             <Bot className="w-5 h-5 text-black" />
           </div>
@@ -35,7 +35,8 @@ export function Sidebar() {
       <nav className="p-4 space-y-1">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.id || (item.id !== '/' && pathname.startsWith(item.id));
+          const isActive =
+            pathname === item.id || pathname.startsWith(`${item.id}/`);
 
           return (
             <Link
