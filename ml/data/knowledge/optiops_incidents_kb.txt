@@ -1,0 +1,21 @@
+=== OptiOps reference knowledge (for RAG / vector DB seeding) ===
+
+INC-001: Rolling restarts for Java services should use maxUnavailable=1 and readiness gates to avoid thundering herd on the connection pool.
+
+INC-002: PostgreSQL RDS read replica lag above 5s during batch ETL often indicates missing transaction isolation tuning; check hot tables and consider parallel workers cap.
+
+INC-003: Kubernetes pod OOMKilled with limit 512Mi usually means JVM -Xmx not aligned with container limit; set requests=limits for latency-sensitive workloads or raise limit with profiling.
+
+INC-004: INR cost spikes on AWS ap-south-1 for EC2 often correlate with idle gp3 volumes; use Compute Optimizer and detach unused EBS after snapshot.
+
+INC-005: p99 API latency regression after deploy with no code change may be cold JVM or empty cache; verify gradual rollout and warmup probes.
+
+INC-006: MongoDB primary step-down during maintenance requires updating application SRV URI TTL; clients should retry writes with exponential backoff.
+
+INC-007: Nginx upstream timeouts during deploys suggest missing graceful shutdown on workers; implement preStop hook sleep and drain connections.
+
+INC-008: Alert fatigue from low-severity repeated alarms should use multi-window burn rates for SLO-based paging instead of static thresholds.
+
+INC-009: GitHub Actions queue delays block hotfix; maintain self-hosted runners for critical pipeline paths with dedicated labels.
+
+INC-010: Prometheus high cardinality from unbounded label values (e.g. user_id) will crash TSDB; drop or aggregate labels at scrape or recording rules.

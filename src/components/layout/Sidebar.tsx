@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Activity, Bot, FileText, ScrollText, Rocket, Server, Settings, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, Activity, Bot, FileText, ScrollText, Rocket, Server, Settings, AlertCircle, BarChart3 } from 'lucide-react';
 
 const navItems = [
   { id: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { id: '/monitoring', icon: Activity, label: 'Monitoring' },
   { id: '/alerts', icon: AlertCircle, label: 'Alerts' },
+  { id: '/ml-research', icon: BarChart3, label: 'ML Research' },
   { id: '/ai-assistant', icon: Bot, label: 'AI Assistant' },
   { id: '/reports', icon: FileText, label: 'Reports' },
   { id: '/logs', icon: ScrollText, label: 'Logs' },

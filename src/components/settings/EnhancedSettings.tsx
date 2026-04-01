@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Siren,
   BarChart3,
+  Cpu,
 } from 'lucide-react';
 import { useSettings, useUpdateSettings } from '@/hooks/use-settings';
 import { Skeleton, CardSkeleton } from '@/components/ui/Skeleton';
@@ -29,6 +30,16 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { AppSettings } from '@/types';
+import {
+  CHAT_PROVIDER_CHANGED_EVENT,
+  CHAT_PROVIDER_STORAGE_KEY,
+  getLocalLlmBaseUrl,
+  LOCAL_LLM_START_HELP,
+  readStoredChatProvider,
+  writeStoredChatProvider,
+  type ChatProviderMode,
+  type ModelStatusPayload,
+} from '@/lib/local-llm';
 
 // ── Zod Schemas ─────────────────────────────────────────────
 
@@ -61,6 +72,7 @@ const TABS = [
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'integrations', label: 'Integrations', icon: Puzzle },
+  { id: 'ai-model', label: 'AI Model', icon: Cpu },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -129,6 +141,7 @@ export function EnhancedSettings() {
       {activeTab === 'integrations' && (
         <IntegrationsSection settings={settings} updateSettings={updateSettings} />
       )}
+      {activeTab === 'ai-model' && <ModelConfigurationSection />}
     </div>
   );
 }
@@ -459,6 +472,151 @@ function DashboardSection({
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+// ── AI Model (local inference + Groq) ───────────────────────
+
+function ModelConfigurationSection() {
+  const [provider, setProvider] = useState<ChatProviderMode>('groq');
+  const [status, setStatus] = useState<ModelStatusPayload | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setTesting(true);
+    try {
+      const r = await fetch('/api/model-status', { cache: 'no-store' });
+      setStatus((await r.json()) as ModelStatusPayload);
+    } finally {
+      setTesting(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    setProvider(readStoredChatProvider());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === CHAT_PROVIDER_STORAGE_KEY && (e.newValue === 'groq' || e.newValue === 'local')) {
+        setProvider(e.newValue);
+      }
+    };
+    const onSameTab = () => setProvider(readStoredChatProvider());
+    window.addEventListener('storage', onStorage);
+    window.addEventListener(CHAT_PROVIDER_CHANGED_EVENT, onSameTab);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(CHAT_PROVIDER_CHANGED_EVENT, onSameTab);
+    };
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const baseUrl = getLocalLlmBaseUrl();
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2.5 rounded-lg bg-cyan-500/20">
+            <Cpu className="w-5 h-5 text-cyan-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-white">Model configuration</h3>
+            <p className="text-sm text-gray-400">
+              Groq cloud vs local Qwen2.5 + QLoRA (FastAPI on port 8001)
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="p-4 rounded-xl bg-black/20 border border-white/10">
+            <h4 className="text-xs uppercase tracking-wide text-gray-500 mb-2">Assistant preference</h4>
+            <p className="text-sm text-white mb-3">
+              Active in AI Assistant:{' '}
+              <span className="text-cyan-400 font-medium">
+                {provider === 'groq' ? 'Groq API' : 'Fine-tuned (local)'}
+              </span>
+            </p>
+            <p className="text-xs text-gray-500 mb-3">
+              Switch models from the AI Assistant page header. This mirrors{' '}
+              <code className="text-gray-400">localStorage[{`"${CHAT_PROVIDER_STORAGE_KEY}"`}]</code>.
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                suppressHydrationWarning
+                type="button"
+                onClick={() => {
+                  writeStoredChatProvider('groq');
+                  setProvider('groq');
+                  window.dispatchEvent(new Event(CHAT_PROVIDER_CHANGED_EVENT));
+                  toast.success('Default chat provider set to Groq');
+                }}
+                className="px-3 py-1.5 text-xs rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-cyan-300"
+              >
+                Use Groq
+              </button>
+              <button
+                suppressHydrationWarning
+                type="button"
+                onClick={() => {
+                  writeStoredChatProvider('local');
+                  setProvider('local');
+                  window.dispatchEvent(new Event(CHAT_PROVIDER_CHANGED_EVENT));
+                  toast.success('Default chat provider set to local model');
+                }}
+                className="px-3 py-1.5 text-xs rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-300"
+              >
+                Use local model
+              </button>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-black/20 border border-white/10">
+            <h4 className="text-xs uppercase tracking-wide text-gray-500 mb-2">Local inference server</h4>
+            <div className="flex items-center gap-2 mb-2">
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border',
+                  status?.status === 'online'
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                    : 'bg-red-500/10 border-red-500/30 text-red-400',
+                )}
+              >
+                {status?.status === 'online' ? 'Online' : 'Offline'}
+              </span>
+              {status?.adapter_loaded ? (
+                <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  QLoRA loaded
+                </span>
+              ) : (
+                <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 border border-white/10">
+                  Base only
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 font-mono break-all mb-2">{baseUrl}/health</p>
+            {status?.detail ? <p className="text-xs text-amber-200/80 mb-2">{status.detail}</p> : null}
+            <p className="text-xs text-gray-400 mb-3 leading-relaxed">
+              From the repo: <code className="text-gray-300">cd ml/server</code> →{' '}
+              <code className="text-gray-300">pip install -r requirements-server.txt</code> →{' '}
+              <code className="text-gray-300">uvicorn inference_server:app --host 0.0.0.0 --port 8001</code>
+            </p>
+            <p className="text-xs text-red-400/90 mb-3">{LOCAL_LLM_START_HELP}</p>
+            <button
+              suppressHydrationWarning
+              type="button"
+              onClick={() => void refresh()}
+              disabled={testing}
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/15 border border-white/15 rounded-lg text-xs text-white disabled:opacity-50"
+            >
+              {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              Test connection
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

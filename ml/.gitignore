@@ -1,0 +1,8 @@
+chroma_db/
+outputs/
+data/optiops_ml.db
+results/
+wandb/
+__pycache__/
+*.pyc
+.venv/

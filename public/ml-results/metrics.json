@@ -1,0 +1,64 @@
+{
+  "title": "OptiOps SRE instruction model — assignment metrics",
+  "task": "Application-specific DevOps/SRE QA (concise remediation text)",
+  "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "disclaimer": "Placeholder example. After training, run ml/scripts/evaluate_baselines.py to overwrite with measured scores.",
+  "split_manifest": {
+    "seed": 42,
+    "ratios": { "train": 0.7, "val": 0.15, "test": 0.15 },
+    "counts": { "train": 245, "val": 39, "test": 36 },
+    "filters": { "min_output_chars": 40, "max_total_chars": 6000 }
+  },
+  "metrics": [
+    {
+      "method": "pretrained_min",
+      "rouge1_f1": 0.214,
+      "rougeL_f1": 0.182,
+      "bleu": 6.4,
+      "n_samples": 36
+    },
+    {
+      "method": "prompt_engineered",
+      "rouge1_f1": 0.268,
+      "rougeL_f1": 0.231,
+      "bleu": 8.7,
+      "n_samples": 36
+    },
+    {
+      "method": "qlora_finetuned",
+      "rouge1_f1": 0.312,
+      "rougeL_f1": 0.278,
+      "bleu": 10.5,
+      "n_samples": 36
+    }
+  ],
+  "relative_improvement_rougeL_pct_vs_pretrained_min": 52.75,
+  "qualitative": {
+    "pretrained_min": {
+      "lowest_rougeL_cases": [
+        {
+          "rougeL_f1": 0.08,
+          "reference": "1) Verify Redis cluster node health and failover events. 2) Check connection pool sizing vs Redis maxclients.",
+          "prediction": "You should check the logs and restart the service if needed.",
+          "instruction": "We see repeated 503s from payment-api after deploy. Logs show connection reset to Redis.",
+          "category": "incident"
+        }
+      ]
+    },
+    "prompt_engineered": {
+      "lowest_rougeL_cases": []
+    },
+    "qlora_finetuned": {
+      "lowest_rougeL_cases": []
+    }
+  },
+  "error_analysis": {
+    "hallucination_risk": "Small instruct models may invent resource sizes or regions not in the prompt. Mitigations: ground answers with RAG (Chroma KB in ml/scripts/seed_chroma.py), constrain outputs to given context, and keep humans in the loop for production changes.",
+    "failure_modes": [
+      "Over-generic checklists when the prompt omits observability signals.",
+      "Omitting INR/cost angle unless the prompt or engineered system text asks for it.",
+      "Under-specified rollback criteria for stateful deploy questions."
+    ]
+  },
+  "real_world_applicability": "The dashboard ML Lab surfaces these metrics for demos. Domain QLoRA improves alignment with OptiOps incident language; SQLite logs experiment rows; Chroma backs optional RAG over the incident knowledge file — matching how a real internal copilot would be shipped and regression-tested."
+}
