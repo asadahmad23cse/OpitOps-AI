@@ -8,6 +8,7 @@ to OptiOps-style incident/cost/deploy language without full fine-tune drift.
 from __future__ import annotations
 
 import argparse
+import inspect
 from pathlib import Path
 
 import torch
@@ -129,22 +130,29 @@ def main() -> None:
     dataset = dataset.map(build_text_batch, batched=True)
     dataset = dataset.remove_columns([c for c in dataset.column_names if c != "text"])
 
-    training_args = SFTConfig(
-        output_dir=str(args.output),
-        num_train_epochs=args.epochs,
-        per_device_train_batch_size=args.batch,
-        gradient_accumulation_steps=args.grad_acc,
-        learning_rate=args.lr,
-        logging_steps=10,
-        save_strategy="epoch",
-        warmup_ratio=0.03,
-        max_seq_length=args.max_length,
-        dataset_text_field="text",
-        fp16=args.fp16_no_bnb,
-        bf16=not args.fp16_no_bnb,
-        optim="paged_adamw_8bit" if not args.fp16_no_bnb else "adamw_torch",
-        report_to="none",
-    )
+    sft_kwargs = {
+        "output_dir": str(args.output),
+        "num_train_epochs": args.epochs,
+        "per_device_train_batch_size": args.batch,
+        "gradient_accumulation_steps": args.grad_acc,
+        "learning_rate": args.lr,
+        "logging_steps": 10,
+        "save_strategy": "epoch",
+        "warmup_ratio": 0.03,
+        "dataset_text_field": "text",
+        "fp16": args.fp16_no_bnb,
+        "bf16": not args.fp16_no_bnb,
+        "optim": "paged_adamw_8bit" if not args.fp16_no_bnb else "adamw_torch",
+        "report_to": "none",
+    }
+    # TRL renamed this field across versions; support both old and new.
+    sft_fields = set(inspect.signature(SFTConfig).parameters.keys())
+    if "max_seq_length" in sft_fields:
+        sft_kwargs["max_seq_length"] = args.max_length
+    elif "max_length" in sft_fields:
+        sft_kwargs["max_length"] = args.max_length
+
+    training_args = SFTConfig(**sft_kwargs)
 
     try:
         trainer = SFTTrainer(

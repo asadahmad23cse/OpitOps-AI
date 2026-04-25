@@ -1,17 +1,23 @@
 """
 Generate application-specific OptiOps (DevOps/SRE) instruction data for fine-tuning.
 Output: ml/data/raw/optiops_sre_full.jsonl
+
+Now supports merging local Hugging Face datasets downloaded under:
+  ml/data/external/huggingface/
 """
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import random
+import re
 import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw" / "optiops_sre_full.jsonl"
+HF_EXTERNAL = ROOT / "data" / "external" / "huggingface"
 
 CATEGORIES = [
     "incident",
@@ -75,6 +81,180 @@ TEMPLATES: list[tuple[str, str, str, str]] = [
         "Align scrape TLS config with new CA bundle or use proper tls_config ca_file. Roll out updated ServiceMonitor/PodMonitor. If mTLS rotated, update client certs on Prometheus or reverse proxy. Validate clock skew on targets.",
     ),
 ]
+
+
+def _clean_text(value: str) -> str:
+    """Normalize HTML-ish scraped text into compact plain text."""
+    if not value:
+        return ""
+    text = html.unescape(str(value))
+    text = re.sub(r"<code>(.*?)</code>", r" `\1` ", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def _infer_category(text: str, default: str = "k8s") -> str:
+    t = text.lower()
+    if any(k in t for k in ["security", "rbac", "secret", "vulnerability", "cve", "opa", "kyverno", "falco"]):
+        return "security"
+    if any(k in t for k in ["cost", "billing", "finops", "savings plan", "reserved instance", "inr", "rupee"]):
+        return "cost"
+    if any(k in t for k in ["deploy", "rollout", "canary", "blue-green", "release", "ci/cd", "pipeline"]):
+        return "deploy"
+    if any(k in t for k in ["prometheus", "grafana", "alert", "slo", "latency", "logging", "observability", "metrics"]):
+        return "observability"
+    if any(k in t for k in ["postgres", "mysql", "database", "sql", "query", "replica"]):
+        return "database"
+    if any(k in t for k in ["dns", "network", "ingress", "egress", "mtu", "tcp", "service mesh"]):
+        return "networking"
+    if any(k in t for k in ["incident", "outage", "503", "500", "error budget", "on-call", "triage"]):
+        return "incident"
+    if any(k in t for k in ["kubernetes", "k8s", "kubectl", "pod", "node", "namespace", "cluster"]):
+        return "k8s"
+    return default
+
+
+def _read_table(path: Path):
+    """Read parquet/csv/json/jsonl using pandas when available."""
+    try:
+        import pandas as pd  # type: ignore
+    except Exception as e:
+        raise RuntimeError(
+            "pandas is required to ingest external Hugging Face datasets. "
+            "Install ml requirements first: pip install -r ml/requirements-ml.txt"
+        ) from e
+
+    suffix = path.suffix.lower()
+    if suffix == ".parquet":
+        return pd.read_parquet(path)
+    if suffix == ".csv":
+        return pd.read_csv(path)
+    if suffix == ".jsonl":
+        return pd.read_json(path, lines=True)
+    if suffix == ".json":
+        return pd.read_json(path)
+    raise ValueError(f"Unsupported file type for {path}")
+
+
+def _sample_cap(rows: list[dict], cap: int, rng: random.Random) -> list[dict]:
+    if cap <= 0 or len(rows) <= cap:
+        return rows
+    picked = rows[:]
+    rng.shuffle(picked)
+    return picked[:cap]
+
+
+def _load_hf_external_rows(seed: int, max_per_source: int) -> list[dict]:
+    """Load and normalize locally-downloaded Hugging Face datasets."""
+    if not HF_EXTERNAL.exists():
+        print(f"[hf] external dataset dir not found: {HF_EXTERNAL}")
+        return []
+
+    rng = random.Random(seed)
+    out: list[dict] = []
+
+    # 1) StackOverflow Kubernetes Q/A
+    so_dir = HF_EXTERNAL / "mcipriano__stackoverflow-kubernetes-questions"
+    so_file = so_dir / "data" / "kubernetes_dump.parquet"
+    if so_file.exists():
+        df = _read_table(so_file)
+        rows = []
+        for rec in df.to_dict(orient="records"):
+            inst = _clean_text(str(rec.get("Question", "")))
+            ans = _clean_text(str(rec.get("Answer", "")))
+            if not inst or not ans:
+                continue
+            rows.append(
+                {
+                    "category": _infer_category(inst + " " + ans, default="k8s"),
+                    "instruction": inst,
+                    "input": "Source: StackOverflow Kubernetes Q&A",
+                    "output": ans,
+                    "source": "hf_mcipriano_stackoverflow_k8s",
+                }
+            )
+        rows = _sample_cap(rows, max_per_source, rng)
+        print(f"[hf] loaded {len(rows)} rows from {so_file}")
+        out.extend(rows)
+
+    # 2) Kubernetes security bilingual dataset (English subset)
+    sec_dir = HF_EXTERNAL / "AYI-NEDJIMI__kubernetes-security" / "data"
+    sec_rows: list[dict] = []
+    if sec_dir.exists():
+        for p in sorted(sec_dir.glob("*.parquet")):
+            df = _read_table(p)
+            for rec in df.to_dict(orient="records"):
+                inst = _clean_text(str(rec.get("instruction_en", "")))
+                ans = _clean_text(str(rec.get("response_en", "")))
+                cat_raw = _clean_text(str(rec.get("category", "")))
+                if not inst or not ans:
+                    continue
+                sec_rows.append(
+                    {
+                        "category": "security",
+                        "instruction": inst,
+                        "input": f"Security topic: {cat_raw}" if cat_raw else "",
+                        "output": ans,
+                        "source": "hf_ayi_kubernetes_security",
+                    }
+                )
+    sec_rows = _sample_cap(sec_rows, max_per_source, rng)
+    if sec_rows:
+        print(f"[hf] loaded {len(sec_rows)} rows from {sec_dir}")
+        out.extend(sec_rows)
+
+    # 3) K8sAIOps operator dataset
+    op_dir = HF_EXTERNAL / "K8sAIOps__kubernetes_operator_dataset_1k"
+    op_file = op_dir / "train-00000-of-00001.parquet"
+    if op_file.exists():
+        df = _read_table(op_file)
+        rows = []
+        for rec in df.to_dict(orient="records"):
+            inst = _clean_text(str(rec.get("instruction", "")))
+            ans = _clean_text(str(rec.get("output", "")))
+            typ = _clean_text(str(rec.get("type", "")))
+            if not inst or not ans:
+                continue
+            rows.append(
+                {
+                    "category": _infer_category((typ + " " + inst + " " + ans), default="k8s"),
+                    "instruction": inst,
+                    "input": f"Command type: {typ}" if typ else "",
+                    "output": ans,
+                    "source": "hf_k8s_aiops_operator",
+                }
+            )
+        rows = _sample_cap(rows, max_per_source, rng)
+        print(f"[hf] loaded {len(rows)} rows from {op_file}")
+        out.extend(rows)
+
+    # 4) DevOps cloud instruction dataset
+    devops_dir = HF_EXTERNAL / "bernabepuente__devops-cloud-instruction-dataset"
+    devops_file = devops_dir / "dataset.jsonl"
+    if devops_file.exists():
+        df = _read_table(devops_file)
+        rows = []
+        for rec in df.to_dict(orient="records"):
+            inst = _clean_text(str(rec.get("instruction", "")))
+            ans = _clean_text(str(rec.get("output", "")))
+            inp = _clean_text(str(rec.get("input", "")))
+            if not inst or not ans:
+                continue
+            rows.append(
+                {
+                    "category": _infer_category(inst + " " + ans, default="deploy"),
+                    "instruction": inst,
+                    "input": inp,
+                    "output": ans,
+                    "source": "hf_bernabe_devops_instruction",
+                }
+            )
+        rows = _sample_cap(rows, max_per_source, rng)
+        print(f"[hf] loaded {len(rows)} rows from {devops_file}")
+        out.extend(rows)
+
+    return out
 
 
 def _variants() -> list[dict]:
@@ -156,15 +336,47 @@ def _dedupe(rows: list[dict]) -> list[dict]:
     return out
 
 
+def _count_by_source(rows: list[dict]) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for r in rows:
+        src = str(r.get("source", "unknown"))
+        out[src] = out.get(src, 0) + 1
+    return dict(sorted(out.items(), key=lambda kv: kv[0]))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--target-count", type=int, default=320)
+    parser.add_argument(
+        "--include-hf-external",
+        action="store_true",
+        default=True,
+        help="Merge locally downloaded Hugging Face datasets from ml/data/external/huggingface.",
+    )
+    parser.add_argument(
+        "--no-include-hf-external",
+        action="store_false",
+        dest="include_hf_external",
+        help="Disable Hugging Face external dataset merge.",
+    )
+    parser.add_argument(
+        "--hf-max-per-source",
+        type=int,
+        default=1200,
+        help="Cap rows per Hugging Face dataset source (0 = no cap).",
+    )
     args = parser.parse_args()
     random.seed(args.seed)
 
-    rows = _dedupe(_variants())
-    # Pad with paraphrases to reach target size for assignment scale
+    rows = _variants()
+    if args.include_hf_external:
+        hf_rows = _load_hf_external_rows(seed=args.seed, max_per_source=args.hf_max_per_source)
+        rows.extend(hf_rows)
+
+    rows = _dedupe(rows)
+
+    # Pad with paraphrases to reach minimum target size for assignment scale
     extras: list[dict] = []
     base = rows[:]
     tag = 0
@@ -190,6 +402,9 @@ def main() -> None:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
     print(f"Wrote {len(all_rows)} examples to {RAW}")
+    print("Source mix:")
+    for src, cnt in _count_by_source(all_rows).items():
+        print(f"  - {src}: {cnt}")
 
 
 if __name__ == "__main__":
