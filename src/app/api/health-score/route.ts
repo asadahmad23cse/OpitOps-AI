@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { healthScore } from '@/lib/mock-data';
+import { getLiveHealthScore } from '@/lib/live-data';
 
 export async function GET() {
-  return NextResponse.json({ data: healthScore, success: true, timestamp: new Date().toISOString() });
+  const data = await getLiveHealthScore();
+  return NextResponse.json({ data, success: true, timestamp: new Date().toISOString() });
 }

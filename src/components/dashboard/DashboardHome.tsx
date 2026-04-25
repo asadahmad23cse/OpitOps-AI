@@ -60,6 +60,38 @@ export function DashboardHome() {
   const cost = d.costSnapshot;
   const recs = d.recommendations;
   const infra = d.infrastructure;
+  const monthNames = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  const costUpdated = new Date(cost.lastUpdated);
+  const costPeriodText = Number.isNaN(costUpdated.getTime())
+    ? 'Current Month MTD'
+    : `${monthNames[costUpdated.getUTCMonth()]} ${costUpdated.getUTCFullYear()} MTD`;
+  const nonOperationalInfra = infra.filter(node => node.status !== 'operational').length;
+  const infraStatusText = nonOperationalInfra === 0
+    ? 'All Systems Operational'
+    : `${nonOperationalInfra} system${nonOperationalInfra > 1 ? 's' : ''} need attention`;
+  const infraStatusClass = nonOperationalInfra === 0 ? 'text-emerald-400' : 'text-amber-400';
+  const potentialPerfImprovement = Math.max(
+    0,
+    Math.round(
+      recs.reduce((sum, rec) => {
+        const match = rec.performanceImprovement.match(/-?\d+(\.\d+)?/);
+        return sum + (match ? Number(match[0]) : 0);
+      }, 0),
+    ),
+  );
 
   const handleGenerateReport = async () => {
     setGeneratingReport(true);
@@ -92,7 +124,7 @@ export function DashboardHome() {
                 <div className="p-3 rounded-xl bg-white/10"><Sparkles className="w-6 h-6 text-cyan-400" /></div>
                 <div>
                   <h3 className="text-lg font-semibold text-white">Overall Health Score</h3>
-                  <p className="text-sm text-gray-400">AI-powered analysis • Updated {formatTimeAgo(hs.lastUpdated)}</p>
+                  <p className="text-sm text-gray-400">AI-powered analysis - Updated {formatTimeAgo(hs.lastUpdated)}</p>
                 </div>
               </div>
               <div className="flex items-baseline gap-3 mb-4">
@@ -173,16 +205,16 @@ export function DashboardHome() {
                 <div className="p-2.5 rounded-lg bg-emerald-500/20"><IndianRupee className="w-5 h-5 text-emerald-400" /></div>
                 <div>
                   <h3 className="text-sm font-medium text-white">Cost Snapshot</h3>
-                  <p className="text-xs text-gray-500">March 2026 MTD</p>
+                  <p className="text-xs text-gray-500">{costPeriodText}</p>
                 </div>
               </div>
-              <Link href="/infrastructure" className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">View Details →</Link>
+              <Link href="/infrastructure" className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">View Details -&gt;</Link>
             </div>
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div>
                 <p className="text-xs text-gray-400 mb-1">Current Month</p>
                 <p className="text-2xl font-bold text-white">{formatCurrency(cost.currentMonth)}</p>
-                <p className="text-xs text-emerald-400">↓ {Math.abs(cost.trend)}%</p>
+                <p className="text-xs text-emerald-400">{cost.trend >= 0 ? '+' : '-'} {Math.abs(cost.trend)}%</p>
               </div>
               <div>
                 <p className="text-xs text-gray-400 mb-1">Projected</p>
@@ -250,7 +282,7 @@ export function DashboardHome() {
                 <p className="text-xs text-gray-500">Real-time system health</p>
               </div>
             </div>
-            <span className="text-xs text-emerald-400">● All Systems Operational</span>
+            <span className={`text-xs ${infraStatusClass}`}>o {infraStatusText}</span>
           </div>
           <div className="grid grid-cols-5 gap-4">
             {infra.map(node => (
@@ -282,7 +314,7 @@ export function DashboardHome() {
                 <p className="text-xs text-gray-400">Potential Monthly Savings</p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-emerald-400">+32%</p>
+                <p className="text-2xl font-bold text-emerald-400">+{potentialPerfImprovement}%</p>
                 <p className="text-xs text-gray-400">Performance Improvement</p>
               </div>
             </div>

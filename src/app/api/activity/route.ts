@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { activityEvents } from '@/lib/mock-data';
+import { getLiveActivity } from '@/lib/live-data';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const page = parseInt(searchParams.get('page') || '1');
   const pageSize = parseInt(searchParams.get('pageSize') || '8');
-
-  const start = (page - 1) * pageSize;
-  const end = start + pageSize;
-  const paginated = activityEvents.slice(start, end);
+  const data = await getLiveActivity(page, pageSize);
 
   return NextResponse.json({
-    data: paginated,
-    total: activityEvents.length,
-    page,
-    pageSize,
-    hasMore: end < activityEvents.length,
+    data: data.data,
+    total: data.total,
+    page: data.page,
+    pageSize: data.pageSize,
+    hasMore: data.hasMore,
   });
 }

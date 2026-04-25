@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { infrastructure } from '@/lib/mock-data';
+import { getLiveInfrastructure } from '@/lib/live-data';
 
 export async function GET() {
-  return NextResponse.json({ data: infrastructure, success: true, timestamp: new Date().toISOString() });
+  const data = await getLiveInfrastructure();
+  return NextResponse.json({ data, success: true, timestamp: new Date().toISOString() });
 }

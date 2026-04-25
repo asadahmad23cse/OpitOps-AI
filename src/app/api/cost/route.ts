@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { costSnapshot } from '@/lib/mock-data';
+import { getLiveCostSnapshot } from '@/lib/live-data';
 
 export async function GET() {
-  return NextResponse.json({ data: costSnapshot, success: true, timestamp: new Date().toISOString() });
+  const data = await getLiveCostSnapshot();
+  return NextResponse.json({ data, success: true, timestamp: new Date().toISOString() });
 }
