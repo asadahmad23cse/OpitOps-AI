@@ -21,21 +21,23 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const clerkPk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
-  if (!clerkPk) {
-    return (
-      <html lang="en" className="dark">
-        <body className="min-h-screen bg-gray-950 text-gray-100 p-8 font-sans antialiased">
-          <h1 className="text-xl font-bold text-amber-400">Clerk configuration missing</h1>
-          <p className="mt-3 text-gray-300 max-w-lg">
-            <code className="text-cyan-300">NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> is not set at
-            <strong> build time</strong>. In Netlify go to{" "}
-            <strong>Project configuration → Environment variables</strong>, add the key, then{" "}
-            <strong>Deploys → Trigger deploy → Clear cache and deploy site</strong>.
-          </p>
-        </body>
-      </html>
-    );
-  }
+
+  const app = (
+    <QueryProvider>
+      <AppShell>{children}</AppShell>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: "rgba(17, 24, 39, 0.95)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            color: "#fff",
+            backdropFilter: "blur(12px)",
+          },
+        }}
+      />
+    </QueryProvider>
+  );
 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
@@ -48,26 +50,17 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         suppressHydrationWarning
         className={`${inter.variable} font-sans antialiased min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white overflow-x-hidden`}
       >
-        <ClerkProvider
-          publishableKey={clerkPk}
-          appearance={optiopsClerkAppearance}
-          afterSignOutUrl="/"
-        >
-          <QueryProvider>
-            <AppShell>{children}</AppShell>
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                style: {
-                  background: "rgba(17, 24, 39, 0.95)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "#fff",
-                  backdropFilter: "blur(12px)",
-                },
-              }}
-            />
-          </QueryProvider>
-        </ClerkProvider>
+        {clerkPk ? (
+          <ClerkProvider
+            publishableKey={clerkPk}
+            appearance={optiopsClerkAppearance}
+            afterSignOutUrl="/"
+          >
+            {app}
+          </ClerkProvider>
+        ) : (
+          app
+        )}
       </body>
     </html>
   );

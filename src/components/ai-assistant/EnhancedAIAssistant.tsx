@@ -16,7 +16,7 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  timestamp: Date;
+  timestamp?: Date;
 }
 
 const suggestedPrompts = [
@@ -51,7 +51,6 @@ function EnhancedAIAssistantInner() {
       role: "assistant",
       content:
         "Hello! I'm your AI DevOps assistant. Choose Groq (cloud) or the local fine-tuned model, then ask about infrastructure, alerts, deployments, costs, or logs.",
-      timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState("");
@@ -354,7 +353,9 @@ function EnhancedAIAssistantInner() {
                       (msg.role === "assistant" && isSending ? " " : "")}
                   </span>
                 </div>
-                <p className="text-xs text-gray-600 mt-2">{msg.timestamp.toLocaleTimeString()}</p>
+                {msg.timestamp ? (
+                  <p className="text-xs text-gray-600 mt-2">{msg.timestamp.toLocaleTimeString()}</p>
+                ) : null}
               </div>
               {msg.role === "user" && (
                 <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">

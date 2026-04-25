@@ -1,6 +1,7 @@
 chroma_db/
 outputs/
 data/optiops_ml.db
+data/external/
 results/
 wandb/
 __pycache__/

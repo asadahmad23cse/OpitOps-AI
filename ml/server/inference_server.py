@@ -187,10 +187,11 @@ def _generate_from_chat_messages(
     else:
         out = _run_generate()
 
-    full = _tokenizer.decode(out[0], skip_special_tokens=True)
-    if text.strip() and full.startswith(text.strip()):
-        return full[len(text) :].strip()
-    return full.strip()
+    # Decode only newly generated tokens (exclude prompt) to avoid echoing
+    # system/user history back in the assistant response.
+    prompt_len = int(inputs["input_ids"].shape[1])
+    completion_ids = out[0][prompt_len:]
+    return _tokenizer.decode(completion_ids, skip_special_tokens=True).strip()
 
 
 def _build_messages(user_message: str, history: list[ChatMessage]) -> list[dict[str, str]]:

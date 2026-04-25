@@ -1,9 +1,11 @@
 "use client";
 
 import { UserButton, useUser } from "@clerk/nextjs";
-import { Settings } from "lucide-react";
+import { CircleUserRound, Settings } from "lucide-react";
 
-export function UserMenu() {
+const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim());
+
+function UserMenuWithClerk() {
   const { user, isLoaded } = useUser();
 
   if (!isLoaded) {
@@ -19,9 +21,7 @@ export function UserMenu() {
   }
 
   const name =
-    user?.fullName ||
-    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
-    "User";
+    user?.fullName || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "User";
   const email = user?.primaryEmailAddress?.emailAddress ?? "";
 
   return (
@@ -49,4 +49,22 @@ export function UserMenu() {
       </UserButton>
     </div>
   );
+}
+
+function UserMenuNoAuth() {
+  return (
+    <div className="flex items-center gap-3 pl-4 border-l border-white/10">
+      <div className="text-right hidden sm:block min-w-0">
+        <p className="text-sm font-medium text-white truncate">Local User</p>
+        <p className="text-xs text-amber-300 truncate max-w-[200px]">Auth disabled</p>
+      </div>
+      <div className="w-10 h-10 rounded-full border border-white/15 bg-white/5 flex items-center justify-center">
+        <CircleUserRound className="w-5 h-5 text-gray-300" />
+      </div>
+    </div>
+  );
+}
+
+export function UserMenu() {
+  return clerkEnabled ? <UserMenuWithClerk /> : <UserMenuNoAuth />;
 }
