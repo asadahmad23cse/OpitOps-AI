@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { Sparkles, AlertCircle, Rocket, IndianRupee, TrendingUp, CheckCircle2, Server, Download, ChevronRight, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useDashboard } from '@/hooks/use-dashboard';
+import { useCostAnomaly } from '@/hooks/useCostAnomaly';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Modal } from '@/components/ui/Modal';
+import { CostAnomalyCard } from '@/components/CostAnomalyCard';
 import { formatCurrency, formatTimeAgo } from '@/lib/utils';
 import { toast } from 'sonner';
 import { downloadAsJson } from '@/lib/utils';
@@ -47,6 +49,7 @@ function HealthBreakdownModal({ healthScore, open, onClose }: { healthScore: Hea
 
 export function DashboardHome() {
   const { data, isLoading, error, refetch } = useDashboard();
+  const { data: costAnomalyData } = useCostAnomaly();
   const [healthModalOpen, setHealthModalOpen] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
 
@@ -195,6 +198,15 @@ export function DashboardHome() {
             </Link>
           </div>
         </div>
+
+        {costAnomalyData?.hasAnomalies &&
+        costAnomalyData.anomalies &&
+        costAnomalyData.aiExplanation ? (
+          <CostAnomalyCard
+            anomalies={costAnomalyData.anomalies}
+            aiExplanation={costAnomalyData.aiExplanation}
+          />
+        ) : null}
 
         {/* Cost Snapshot + AI Recommendations */}
         <div className="grid grid-cols-2 gap-6">

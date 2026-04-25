@@ -410,3 +410,22 @@ export interface IncidentPostMortem {
   followUpActions: PostMortemFollowUpAction[];
   lessonsLearned: string;
 }
+
+export interface CostAnomaly {
+  service: string;
+  currentCost: number;
+  previousCost: number;
+  percentChange: number;
+  topContributors: string[];
+}
+
+export interface CostAnomalyContext {
+  anomalies: CostAnomaly[];
+  totalSpendChange: number;
+}
+
+export interface CostAnomalyExplainResponse {
+  hasAnomalies: boolean;
+  anomalies?: CostAnomaly[];
+  aiExplanation?: string;
+}

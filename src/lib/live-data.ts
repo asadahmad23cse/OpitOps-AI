@@ -15,6 +15,7 @@ import type {
   AlertsSummary,
   AppSettings,
   CostSnapshot,
+  CostAnomalyContext,
   CreateDeploymentInput,
   DashboardData,
   Deployment,
@@ -1389,6 +1390,117 @@ export async function getLiveCostSnapshot(): Promise<CostSnapshot> {
   return (await buildSnapshot()).costSnapshot;
 }
 
+function roundedPercentChange(current: number, previous: number): number {
+  const safePrevious = Math.max(previous, 1);
+  return Number((((current - safePrevious) / safePrevious) * 100).toFixed(1));
+}
+
+function serviceGrowthFactor(
+  serviceName: string,
+  snapshot: LiveSnapshot,
+  deploymentsLast7: number,
+): number {
+  const production = snapshot.infrastructure.find((n) => n.name === "Production");
+  const database = snapshot.infrastructure.find((n) => n.name === "Database Cluster");
+  const cache = snapshot.infrastructure.find((n) => n.name === "Cache Layer");
+
+  const activeAlerts = snapshot.alertsSummary.open + snapshot.alertsSummary.acknowledged;
+  const criticalAlerts = snapshot.alertsSummary.critical;
+  const runningDeployments = snapshot.deploymentsSummary.running + snapshot.deploymentsSummary.queued;
+
+  if (serviceName === "AWS EC2") {
+    const cpuPressure = Math.max(0, (production?.cpuAvg ?? 55) - 60) / 100;
+    const deployPressure = Math.min(0.3, runningDeployments * 0.05 + deploymentsLast7 * 0.02);
+    return clamp(0.02 + cpuPressure + deployPressure, -0.12, 0.85);
+  }
+
+  if (serviceName === "RDS Databases") {
+    const memoryPressure = Math.max(0, (database?.memoryAvg ?? 60) - 68) / 110;
+    const alertPressure = Math.min(0.2, criticalAlerts * 0.06 + activeAlerts * 0.015);
+    return clamp(0.01 + memoryPressure + alertPressure, -0.1, 0.7);
+  }
+
+  const transferPressure = Math.min(0.5, deploymentsLast7 * 0.04 + activeAlerts * 0.025);
+  const cachePressure = Math.max(0, (cache?.cpuAvg ?? 45) - 58) / 120;
+  return clamp(0.03 + transferPressure + cachePressure, -0.08, 0.95);
+}
+
+function topContributorsForService(
+  serviceName: string,
+  snapshot: LiveSnapshot,
+  deploymentsLast7: number,
+): string[] {
+  const production = snapshot.infrastructure.find((n) => n.name === "Production");
+  const database = snapshot.infrastructure.find((n) => n.name === "Database Cluster");
+  const cache = snapshot.infrastructure.find((n) => n.name === "Cache Layer");
+  const activeAlerts = snapshot.alertsSummary.open + snapshot.alertsSummary.acknowledged;
+
+  if (serviceName === "AWS EC2") {
+    return [
+      `Production CPU pressure at ${production?.cpuAvg ?? 0}% increased compute demand`,
+      `${snapshot.deploymentsSummary.running + snapshot.deploymentsSummary.queued} active deployment(s) amplified instance churn`,
+      `${activeAlerts} active alert(s) likely triggered higher autoscaling floor`,
+    ];
+  }
+
+  if (serviceName === "RDS Databases") {
+    return [
+      `Database memory utilization reached ${database?.memoryAvg ?? 0}%`,
+      `Recent deployment activity (${deploymentsLast7} in 7d) increased query and migration load`,
+      `${snapshot.alertsSummary.critical} critical incident(s) likely drove expensive failover/read-replica usage`,
+    ];
+  }
+
+  return [
+    `${deploymentsLast7} deployment event(s) in the last 7 days increased artifact/image transfer`,
+    `Cache CPU at ${cache?.cpuAvg ?? 0}% suggests elevated east-west traffic`,
+    `${activeAlerts} active alert(s) correlate with retry/backoff traffic overhead`,
+  ];
+}
+
+export async function getCostAnomalyContext(): Promise<CostAnomalyContext> {
+  const snapshot = await buildSnapshot();
+  const cost = snapshot.costSnapshot;
+
+  const now = new Date(cost.lastUpdated);
+  const monthDay = Number.isNaN(now.getTime()) ? new Date().getDate() : now.getUTCDate();
+  const safeMonthDay = Math.max(1, monthDay);
+
+  const sevenDaysAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const deploymentsLast7 = snapshot.deployments.filter(
+    (d) => new Date(d.startedAt).getTime() >= sevenDaysAgoMs,
+  ).length;
+
+  const anomalies: CostAnomalyContext["anomalies"] = [];
+  let totalCurrentWeekly = 0;
+  let totalPreviousWeekly = 0;
+
+  for (const service of cost.services) {
+    const currentWeekly = Math.max(1, Math.round((service.cost / safeMonthDay) * 7));
+    const growthFactor = serviceGrowthFactor(service.service, snapshot, deploymentsLast7);
+    const previousWeekly = Math.max(1, Math.round(currentWeekly / (1 + growthFactor)));
+    const percentChange = roundedPercentChange(currentWeekly, previousWeekly);
+
+    totalCurrentWeekly += currentWeekly;
+    totalPreviousWeekly += previousWeekly;
+
+    if (percentChange > 20) {
+      anomalies.push({
+        service: service.service,
+        currentCost: currentWeekly,
+        previousCost: previousWeekly,
+        percentChange,
+        topContributors: topContributorsForService(service.service, snapshot, deploymentsLast7),
+      });
+    }
+  }
+
+  return {
+    anomalies,
+    totalSpendChange: roundedPercentChange(totalCurrentWeekly, totalPreviousWeekly),
+  };
+}
+
 export async function getLiveAlerts(params: {
   severity?: string | null;
   status?: string | null;
@@ -1775,4 +1887,3 @@ export async function getLiveTopologyNodeDetail(nodeId: string): Promise<Topolog
     recommendedActions,
   };
 }
-
