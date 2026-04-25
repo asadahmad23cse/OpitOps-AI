@@ -1,6 +1,7 @@
 import Groq from "groq-sdk";
 import { NextResponse } from "next/server";
 import { buildLiveSystemContext } from "@/lib/context-builder";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,29 @@ type ChatRole = "user" | "assistant";
 type GroqMessage = { role: "system" | "user" | "assistant"; content: string };
 
 export async function POST(req: Request) {
+  const rateLimit = checkRateLimit(req, {
+    windowMs: 60_000,
+    max: 30,
+    keyPrefix: "api-ai-chat",
+  });
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      {
+        error: "rate_limited",
+        message: "Too many requests. Please retry shortly.",
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSec),
+          "X-RateLimit-Limit": String(rateLimit.limit),
+          "X-RateLimit-Remaining": String(rateLimit.remaining),
+          "X-RateLimit-Reset": String(rateLimit.resetAt),
+        },
+      },
+    );
+  }
+
   const apiKey = process.env.GROQ_API_KEY?.trim();
   if (!apiKey || apiKey === "your_groq_key_here") {
     return NextResponse.json(
@@ -97,7 +121,7 @@ export async function POST(req: Request) {
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           try {
-            controller.enqueue(encoder.encode(`\n\n⚠️ ${msg}`));
+            controller.enqueue(encoder.encode(`\n\nWARNING: ${msg}`));
             controller.close();
           } catch {
             controller.error(e);
@@ -111,6 +135,9 @@ export async function POST(req: Request) {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "Cache-Control": "no-store",
+        "X-RateLimit-Limit": String(rateLimit.limit),
+        "X-RateLimit-Remaining": String(rateLimit.remaining),
+        "X-RateLimit-Reset": String(rateLimit.resetAt),
       },
     });
   } catch (e) {

@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from 'react';
-import { Sparkles, AlertCircle, Rocket, IndianRupee, TrendingUp, CheckCircle2, Server, ArrowRight, Download, ChevronRight, Zap } from 'lucide-react';
+import { Sparkles, AlertCircle, Rocket, IndianRupee, TrendingUp, CheckCircle2, Server, Download, ChevronRight, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useDashboard } from '@/hooks/use-dashboard';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Modal } from '@/components/ui/Modal';
-import { formatCurrency, formatTimeAgo, statusColor } from '@/lib/utils';
+import { formatCurrency, formatTimeAgo } from '@/lib/utils';
 import { toast } from 'sonner';
-import { downloadAsJson, downloadAsCsv } from '@/lib/utils';
+import { downloadAsJson } from '@/lib/utils';
 import type { HealthScore, Recommendation } from '@/types';
 
 function HealthBreakdownModal({ healthScore, open, onClose }: { healthScore: HealthScore; open: boolean; onClose: () => void }) {

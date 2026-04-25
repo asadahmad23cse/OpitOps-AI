@@ -8,7 +8,6 @@ import {
   Clock,
   Search,
   ChevronDown,
-  Eye,
   UserPlus,
   ShieldCheck,
   ShieldAlert,
@@ -24,7 +23,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
-import { formatTimeAgo, cn, severityColor, severityBgColor, statusColor, statusBgColor } from '@/lib/utils';
+import { formatTimeAgo, cn, severityColor, severityBgColor } from '@/lib/utils';
 import type { Alert, AlertSeverity, AlertStatus, AlertsFilter, AlertsSummary } from '@/types';
 
 const SEVERITY_OPTIONS: { label: string; value: AlertSeverity | '' }[] = [

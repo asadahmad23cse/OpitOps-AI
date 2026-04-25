@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local ML/runtime assets (not part of Next.js frontend lint scope):
+    "**/.venv/**",
+    "ml/**",
+    "data/**",
+    "training_required_pack/**",
+    "newdevmodel/**",
   ]),
 ]);
 

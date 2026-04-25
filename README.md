@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OptiOps AI
 
-## Getting Started
+Production-focused DevOps/SRE dashboard built with Next.js 16.
 
-First, run the development server:
+## 1. Local Run
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 2. Environment Setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create `.env.local` from `.env.example` and fill required values:
 
-## Learn More
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `GROQ_API_KEY`
+- `NEXT_PUBLIC_LOCAL_LLM_URL` (default: `http://localhost:8001`)
+- `GITHUB_OWNER`
+- `GITHUB_TOKEN`
 
-To learn more about Next.js, take a look at the following resources:
+## 3. Quality Gates
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Run before every push:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run lint
+npm run build
+```
 
-## Deploy on Vercel
+CI is configured in `.github/workflows/ci.yml` and enforces lint + build on `main`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 4. Health Check
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Runtime health endpoint:
+
+- `GET /api/health`
+
+It returns app status and key integration checks (Clerk, Groq, GitHub, local model endpoint).
+
+## 5. Security Hardening Included
+
+- Security headers configured in `next.config.ts`
+- API rate limiting on `POST /api/ai/chat`
+- Clerk auth gate on protected routes via `src/proxy.ts`
+- Runtime/cache state is excluded from git (`/data/runtime/`)
+
+## 6. Production Checklist
+
+1. Set all production env vars in hosting platform (Netlify/Vercel/etc.).
+2. Enable HTTPS and set secure cookie policy at platform level.
+3. Verify `npm run lint` and `npm run build` pass in CI.
+4. Verify `/api/health` status in deployed environment.
+5. Configure alerting on app downtime and API error spikes.
+6. Rotate API keys/tokens periodically.
+
+## 7. Important Note About "Real" Data
+
+Dashboard is wired to live runtime sources and GitHub-derived deployment data.  
+For full enterprise production accuracy, connect infrastructure/cost/alert pipelines to your real observability stack (CloudWatch/Datadog/Prometheus + billing APIs).
+

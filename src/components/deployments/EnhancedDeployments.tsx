@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Rocket,
@@ -20,7 +20,6 @@ import {
   X,
   RefreshCw,
   AlertTriangle,
-  Info,
   Loader2,
 } from "lucide-react";
 import {
@@ -558,19 +557,14 @@ function LoadingSkeleton() {
 
 export default function EnhancedDeployments() {
   const searchParams = useSearchParams();
+  const openCreateModalFromQuery = searchParams.get("action") === "create";
   const [filters, setFilters] = useState<Filters>({
     environment: "",
     status: "",
   });
   const [selectedDeployment, setSelectedDeployment] =
     useState<Deployment | null>(null);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (searchParams.get("action") === "create") {
-      setCreateModalOpen(true);
-    }
-  }, [searchParams]);
+  const [createModalOpen, setCreateModalOpen] = useState(openCreateModalFromQuery);
 
   const queryFilters = useMemo(() => {
     const f: Record<string, string> = {};

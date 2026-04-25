@@ -12,6 +12,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)",
   "/api/model-status(.*)",
   "/api/ai/chat(.*)",
+  "/api/health(.*)",
 ]);
 
 const clerkHandler = clerkMiddleware(async (auth, req) => {
@@ -20,7 +21,7 @@ const clerkHandler = clerkMiddleware(async (auth, req) => {
   }
 });
 
-export default function middleware(req: NextRequest, evt: NextFetchEvent) {
+export default function proxy(req: NextRequest, evt: NextFetchEvent) {
   if (!clerkEnabled) {
     return NextResponse.next();
   }
@@ -34,3 +35,4 @@ export const config = {
     "/(api|trpc)(.*)",
   ],
 };
+

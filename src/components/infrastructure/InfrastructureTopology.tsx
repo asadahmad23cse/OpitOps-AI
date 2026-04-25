@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Server, Cpu, HardDrive, Wifi, AlertTriangle, Activity, Clock, Shield } from 'lucide-react';
+import { Server, Cpu, HardDrive, Wifi, AlertTriangle, Clock } from 'lucide-react';
 import { useInfrastructure } from '@/hooks/use-infrastructure';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/ui/ErrorState';

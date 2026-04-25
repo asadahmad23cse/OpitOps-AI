@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { IndianRupee, TrendingDown, TrendingUp, Download, Filter } from 'lucide-react';
+import { IndianRupee, TrendingDown, TrendingUp, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useCost } from '@/hooks/use-infrastructure';
 import { CardSkeleton } from '@/components/ui/Skeleton';
