@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses, type UIMessage } from "ai";
 import { Send, Bot, User, Sparkles, AlertCircle, Rocket, IndianRupee, Activity, Loader2, Cloud, Cpu } from "lucide-react";
+import { ToolConfirmationCard, type ToolCardState } from "@/components/ToolConfirmationCard";
 import { cn } from "@/lib/utils";
 import {
   CHAT_PROVIDER_CHANGED_EVENT,
@@ -12,12 +15,56 @@ import {
   type ChatProviderMode,
 } from "@/lib/local-llm";
 
-interface Message {
+interface LocalMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp?: Date;
 }
+
+type MessagePart = UIMessage["parts"][number];
+
+type ToolPartState =
+  | "input-streaming"
+  | "input-available"
+  | "approval-requested"
+  | "approval-responded"
+  | "output-available"
+  | "output-error"
+  | "output-denied";
+
+interface ToolPart {
+  type: string;
+  toolCallId: string;
+  state: ToolPartState;
+  input?: unknown;
+  output?: unknown;
+  errorText?: string;
+  approval?: {
+    id: string;
+    approved?: boolean;
+    reason?: string;
+  };
+  toolName?: string;
+}
+
+const GROQ_WELCOME_MESSAGE: UIMessage = {
+  id: "assistant-groq-welcome",
+  role: "assistant",
+  parts: [
+    {
+      type: "text",
+      text: "Hello! I'm your AI DevOps assistant. Choose Groq (cloud) or the local fine-tuned model, then ask about infrastructure, alerts, deployments, costs, or logs.",
+    },
+  ],
+};
+
+const LOCAL_WELCOME_MESSAGE: LocalMessage = {
+  id: "assistant-local-welcome",
+  role: "assistant",
+  content:
+    "Hello! I'm your AI DevOps assistant. Choose Groq (cloud) or the local fine-tuned model, then ask about infrastructure, alerts, deployments, costs, or logs.",
+};
 
 const suggestedPrompts = [
   { icon: AlertCircle, text: "Why did health score drop?", color: "text-red-400 bg-red-500/10" },
@@ -29,7 +76,7 @@ const suggestedPrompts = [
 ];
 
 /** Strip leading assistant bubbles so the API always receives user-first history. */
-function buildApiMessages(msgs: Message[]): { role: "user" | "assistant"; content: string }[] {
+function buildApiMessages(msgs: LocalMessage[]): { role: "user" | "assistant"; content: string }[] {
   const withContent = msgs.filter((m) => m.content.trim().length > 0);
   let start = 0;
   while (start < withContent.length && withContent[start].role === "assistant") start++;
@@ -39,24 +86,70 @@ function buildApiMessages(msgs: Message[]): { role: "user" | "assistant"; conten
   }));
 }
 
+function isTextPart(part: MessagePart): part is Extract<MessagePart, { type: "text" }> {
+  return part.type === "text";
+}
+
+function asToolPart(part: MessagePart): ToolPart | null {
+  if (part.type === "dynamic-tool" || part.type.startsWith("tool-")) {
+    return part as unknown as ToolPart;
+  }
+  return null;
+}
+
+function getToolActionName(toolPart: ToolPart): string {
+  if (toolPart.type === "dynamic-tool" && toolPart.toolName) {
+    return toolPart.toolName;
+  }
+  return toolPart.type.replace(/^tool-/, "");
+}
+
+function getToolCardState(toolPart: ToolPart): ToolCardState {
+  switch (toolPart.state) {
+    case "approval-requested":
+      return "pending";
+    case "approval-responded":
+      return toolPart.approval?.approved === false ? "denied" : "executing";
+    case "output-available":
+      return "completed";
+    case "output-error":
+      return "error";
+    case "output-denied":
+      return "denied";
+    case "input-streaming":
+    case "input-available":
+    default:
+      return "executing";
+  }
+}
+
 type LocalServerState = "checking" | "online" | "offline";
 
 function EnhancedAIAssistantInner() {
   const searchParams = useSearchParams();
   const [provider, setProvider] = useState<ChatProviderMode>("groq");
   const [localServerState, setLocalServerState] = useState<LocalServerState>("checking");
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "0",
-      role: "assistant",
-      content:
-        "Hello! I'm your AI DevOps assistant. Choose Groq (cloud) or the local fine-tuned model, then ask about infrastructure, alerts, deployments, costs, or logs.",
-    },
-  ]);
+  const [localMessages, setLocalMessages] = useState<LocalMessage[]>([LOCAL_WELCOME_MESSAGE]);
   const [input, setInput] = useState("");
-  const [isSending, setIsSending] = useState(false);
+  const [localIsSending, setLocalIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const consumedPromptRef = useRef(false);
+
+  const {
+    messages: groqMessages,
+    sendMessage: sendGroqMessage,
+    addToolApprovalResponse,
+    status: groqStatus,
+    error: groqError,
+    clearError: clearGroqError,
+  } = useChat({
+    messages: [GROQ_WELCOME_MESSAGE],
+    transport: new DefaultChatTransport({ api: "/api/ai/chat" }),
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+  });
+
+  const isGroqSending = groqStatus === "submitted" || groqStatus === "streaming";
+  const isSending = provider === "groq" ? isGroqSending : localIsSending;
 
   useEffect(() => {
     const stored = window.localStorage.getItem(CHAT_PROVIDER_STORAGE_KEY);
@@ -93,7 +186,7 @@ function EnhancedAIAssistantInner() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [provider, groqMessages, localMessages]);
 
   const setProviderAndStore = useCallback((mode: ChatProviderMode) => {
     setProvider(mode);
@@ -104,145 +197,98 @@ function EnhancedAIAssistantInner() {
   const handleSend = useCallback(
     async (text?: string) => {
       const messageText = (text ?? input).trim();
-      if (!messageText || isSending) return;
+      const busy = provider === "groq" ? isGroqSending : localIsSending;
+      if (!messageText || busy) return;
 
-      const userMsg: Message = {
+      if (provider === "groq") {
+        clearGroqError();
+        setInput("");
+        await sendGroqMessage({ text: messageText });
+        return;
+      }
+
+      const userMsg: LocalMessage = {
         id: `u-${Date.now()}`,
         role: "user",
         content: messageText,
         timestamp: new Date(),
       };
       const assistantId = `a-${Date.now() + 1}`;
-      const assistantPlaceholder: Message = {
+      const assistantPlaceholder: LocalMessage = {
         id: assistantId,
         role: "assistant",
         content: "",
         timestamp: new Date(),
       };
 
-      const historyForApi = buildApiMessages([...messages, userMsg]);
+      const historyForApi = buildApiMessages([...localMessages, userMsg]);
 
-      setMessages((prev) => [...prev, userMsg, assistantPlaceholder]);
+      setLocalMessages((prev) => [...prev, userMsg, assistantPlaceholder]);
       setInput("");
-      setIsSending(true);
+      setLocalIsSending(true);
 
       try {
-        if (provider === "local") {
-          const base = getLocalLlmBaseUrl();
-          const last = historyForApi[historyForApi.length - 1];
-          if (!last || last.role !== "user") {
-            setMessages((p) =>
-              p.map((m) =>
-                m.id === assistantId
-                  ? { ...m, content: "Conversation must end with a user message for the local model." }
-                  : m,
-              ),
-            );
-            return;
-          }
-          const hist = historyForApi.slice(0, -1).map((m) => ({
-            role: m.role,
-            content: m.content,
-          }));
-          const res = await fetch(`${base}/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: last.content, history: hist }),
-          });
-
-          if (!res.ok) {
-            let msg = LOCAL_LLM_START_HELP;
-            try {
-              const raw = (await res.json()) as { detail?: unknown };
-              const d = raw.detail;
-              if (typeof d === "string") {
-                msg = d.includes("loading") ? `${d} Wait briefly after server start, then retry.` : d;
-              } else if (Array.isArray(d) && d.length > 0) {
-                const first = d[0] as { msg?: string };
-                if (typeof first.msg === "string") msg = first.msg;
-              }
-            } catch {
-              msg = LOCAL_LLM_START_HELP;
-            }
-            setMessages((p) => p.map((m) => (m.id === assistantId ? { ...m, content: msg } : m)));
-            setLocalServerState("offline");
-            return;
-          }
-
-          const data = (await res.json()) as { response?: string };
-          const out = typeof data.response === "string" ? data.response : "Empty response from local model.";
-          setMessages((p) => p.map((m) => (m.id === assistantId ? { ...m, content: out } : m)));
-          setLocalServerState("online");
-          return;
-        }
-
-        const res = await fetch("/api/ai/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: historyForApi }),
-        });
-
-        if (!res.ok) {
-          let errText = "Sorry, something went wrong. Please try again.";
-          try {
-            const data = (await res.json()) as { message?: string; error?: string };
-            if (data?.message) errText = data.message;
-          } catch {
-            /* ignore */
-          }
-          setMessages((p) =>
-            p.map((m) => (m.id === assistantId ? { ...m, content: errText } : m)),
-          );
-          return;
-        }
-
-        if (!res.body) {
-          setMessages((p) =>
+        const base = getLocalLlmBaseUrl();
+        const last = historyForApi[historyForApi.length - 1];
+        if (!last || last.role !== "user") {
+          setLocalMessages((p) =>
             p.map((m) =>
-              m.id === assistantId ? { ...m, content: "No response body from server." } : m,
+              m.id === assistantId
+                ? { ...m, content: "Conversation must end with a user message for the local model." }
+                : m,
             ),
           );
           return;
         }
+        const hist = historyForApi.slice(0, -1).map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+        const res = await fetch(`${base}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: last.content, history: hist }),
+        });
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          if (!chunk) continue;
-          setMessages((p) =>
-            p.map((m) => (m.id === assistantId ? { ...m, content: m.content + chunk } : m)),
-          );
+        if (!res.ok) {
+          let msg = LOCAL_LLM_START_HELP;
+          try {
+            const raw = (await res.json()) as { detail?: unknown };
+            const d = raw.detail;
+            if (typeof d === "string") {
+              msg = d.includes("loading") ? `${d} Wait briefly after server start, then retry.` : d;
+            } else if (Array.isArray(d) && d.length > 0) {
+              const first = d[0] as { msg?: string };
+              if (typeof first.msg === "string") msg = first.msg;
+            }
+          } catch {
+            msg = LOCAL_LLM_START_HELP;
+          }
+          setLocalMessages((p) => p.map((m) => (m.id === assistantId ? { ...m, content: msg } : m)));
+          setLocalServerState("offline");
+          return;
         }
 
-        const tail = decoder.decode();
-        if (tail) {
-          setMessages((p) =>
-            p.map((m) => (m.id === assistantId ? { ...m, content: m.content + tail } : m)),
-          );
-        }
+        const data = (await res.json()) as { response?: string };
+        const out = typeof data.response === "string" ? data.response : "Empty response from local model.";
+        setLocalMessages((p) => p.map((m) => (m.id === assistantId ? { ...m, content: out } : m)));
+        setLocalServerState("online");
       } catch {
-        setMessages((p) =>
+        setLocalMessages((p) =>
           p.map((m) =>
             m.id === assistantId
-              ? provider === "local"
-                ? { ...m, content: LOCAL_LLM_START_HELP }
-                : { ...m, content: "Network error. Check your connection and try again." }
+              ? { ...m, content: LOCAL_LLM_START_HELP }
               : m,
           ),
         );
-        if (provider === "local") setLocalServerState("offline");
+        setLocalServerState("offline");
       } finally {
-        setIsSending(false);
+        setLocalIsSending(false);
       }
     },
-    [input, isSending, messages, provider],
+    [input, provider, isGroqSending, localIsSending, sendGroqMessage, clearGroqError, localMessages],
   );
 
-  // Prefill from ?prompt= (e.g. Infrastructure map → AI Analyze)
   useEffect(() => {
     if (consumedPromptRef.current) return;
     const prompt = searchParams.get("prompt");
@@ -295,7 +341,7 @@ function EnhancedAIAssistantInner() {
             <p>
               <span className="text-gray-500">Active:</span>{" "}
               <span className="text-white">
-                {provider === "groq" ? "Groq · llama-3.3-70b-versatile (stream)" : "Local · Qwen2.5-0.5B + QLoRA"}
+                {provider === "groq" ? "Groq - llama-3.3-70b-versatile (stream)" : "Local - Qwen2.5-0.5B + QLoRA"}
               </span>
             </p>
             {provider === "local" ? (
@@ -320,7 +366,7 @@ function EnhancedAIAssistantInner() {
                   {localServerState === "online"
                     ? "Connected"
                     : localServerState === "checking"
-                      ? "Checking…"
+                      ? "Checking..."
                       : "Disconnected"}
                 </span>
                 <span className="text-gray-600 font-mono text-[10px]">{localUrl}</span>
@@ -330,40 +376,133 @@ function EnhancedAIAssistantInner() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
-              {msg.role === "assistant" && (
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-emerald-500 flex items-center justify-center shrink-0">
-                  <Bot className="w-4 h-4 text-black" />
-                </div>
-              )}
-              <div
-                className={`max-w-[70%] rounded-xl p-4 ${
-                  msg.role === "user"
-                    ? "bg-cyan-500/20 border border-cyan-500/30"
-                    : "bg-white/5 border border-white/10"
-                }`}
-              >
-                <div className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed flex items-start gap-2">
-                  {msg.role === "assistant" && isSending && !msg.content && (
-                    <Loader2 className="w-4 h-4 text-cyan-400 animate-spin shrink-0 mt-0.5" />
+          {provider === "groq" ? (
+            <>
+              {groqMessages.map((msg, messageIndex) => {
+                const textContent = msg.parts.filter(isTextPart).map((part) => part.text).join("");
+                const toolParts = msg.parts.map(asToolPart).filter((part): part is ToolPart => part !== null);
+                const isLatestAssistant = msg.role === "assistant" && messageIndex === groqMessages.length - 1;
+                const showAssistantSpinner =
+                  isLatestAssistant &&
+                  isGroqSending &&
+                  textContent.trim().length === 0 &&
+                  toolParts.length === 0;
+
+                return (
+                  <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
+                    {msg.role === "assistant" && (
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-emerald-500 flex items-center justify-center shrink-0">
+                        <Bot className="w-4 h-4 text-black" />
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[70%] rounded-xl p-4 ${
+                        msg.role === "user"
+                          ? "bg-cyan-500/20 border border-cyan-500/30"
+                          : "bg-white/5 border border-white/10"
+                      }`}
+                    >
+                      {textContent.trim().length > 0 || showAssistantSpinner ? (
+                        <div className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed flex items-start gap-2">
+                          {showAssistantSpinner && (
+                            <Loader2 className="w-4 h-4 text-cyan-400 animate-spin shrink-0 mt-0.5" />
+                          )}
+                          <span>{textContent || " "}</span>
+                        </div>
+                      ) : null}
+
+                      {toolParts.length > 0 ? (
+                        <div className={cn("space-y-2", textContent.trim().length > 0 ? "mt-3" : "")}>
+                          {toolParts.map((toolPart, toolPartIndex) => {
+                            const action = getToolActionName(toolPart);
+                            const state = getToolCardState(toolPart);
+                            const approvalId = toolPart.approval?.id;
+                            const canApprove = state === "pending" && !!approvalId;
+                            return (
+                              <ToolConfirmationCard
+                                key={`${msg.id}-${toolPart.toolCallId}-${toolPartIndex}`}
+                                action={action}
+                                parameters={toolPart.input}
+                                state={state}
+                                result={toolPart.output}
+                                errorText={toolPart.errorText ?? toolPart.approval?.reason}
+                                onApprove={
+                                  canApprove
+                                    ? () => {
+                                        void addToolApprovalResponse({ id: approvalId, approved: true });
+                                      }
+                                    : undefined
+                                }
+                                onDeny={
+                                  canApprove
+                                    ? () => {
+                                        void addToolApprovalResponse({
+                                          id: approvalId,
+                                          approved: false,
+                                          reason: "Denied by user from UI",
+                                        });
+                                      }
+                                    : undefined
+                                }
+                              />
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                    {msg.role === "user" && (
+                      <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+                        <User className="w-4 h-4 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <>
+              {localMessages.map((msg) => (
+                <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
+                  {msg.role === "assistant" && (
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-emerald-500 flex items-center justify-center shrink-0">
+                      <Bot className="w-4 h-4 text-black" />
+                    </div>
                   )}
-                  <span>
-                    {msg.content ||
-                      (msg.role === "assistant" && isSending ? " " : "")}
-                  </span>
+                  <div
+                    className={`max-w-[70%] rounded-xl p-4 ${
+                      msg.role === "user"
+                        ? "bg-cyan-500/20 border border-cyan-500/30"
+                        : "bg-white/5 border border-white/10"
+                    }`}
+                  >
+                    <div className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed flex items-start gap-2">
+                      {msg.role === "assistant" && localIsSending && !msg.content && (
+                        <Loader2 className="w-4 h-4 text-cyan-400 animate-spin shrink-0 mt-0.5" />
+                      )}
+                      <span>
+                        {msg.content ||
+                          (msg.role === "assistant" && localIsSending ? " " : "")}
+                      </span>
+                    </div>
+                    {msg.timestamp ? (
+                      <p className="text-xs text-gray-600 mt-2">{msg.timestamp.toLocaleTimeString()}</p>
+                    ) : null}
+                  </div>
+                  {msg.role === "user" && (
+                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+                      <User className="w-4 h-4 text-gray-400" />
+                    </div>
+                  )}
                 </div>
-                {msg.timestamp ? (
-                  <p className="text-xs text-gray-600 mt-2">{msg.timestamp.toLocaleTimeString()}</p>
-                ) : null}
-              </div>
-              {msg.role === "user" && (
-                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                  <User className="w-4 h-4 text-gray-400" />
-                </div>
-              )}
+              ))}
+            </>
+          )}
+
+          {provider === "groq" && groqError ? (
+            <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+              {groqError.message}
             </div>
-          ))}
+          ) : null}
           <div ref={messagesEndRef} />
         </div>
 
@@ -375,7 +514,7 @@ function EnhancedAIAssistantInner() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  handleSend();
+                  void handleSend();
                 }
               }}
               placeholder="Ask about your infrastructure..."
@@ -383,7 +522,9 @@ function EnhancedAIAssistantInner() {
               suppressHydrationWarning
             />
             <button
-              onClick={() => handleSend()}
+              onClick={() => {
+                void handleSend();
+              }}
               disabled={isSending || !input.trim()}
               className="px-4 py-3 bg-gradient-to-r from-cyan-500 to-emerald-500 rounded-xl text-black font-medium hover:shadow-lg hover:shadow-cyan-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               suppressHydrationWarning
@@ -401,7 +542,9 @@ function EnhancedAIAssistantInner() {
             {suggestedPrompts.map((prompt) => (
               <button
                 key={prompt.text}
-                onClick={() => handleSend(prompt.text)}
+                onClick={() => {
+                  void handleSend(prompt.text);
+                }}
                 disabled={isSending}
                 className="w-full flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg text-left hover:bg-white/10 hover:border-white/20 transition-all disabled:opacity-50"
                 suppressHydrationWarning
@@ -418,10 +561,10 @@ function EnhancedAIAssistantInner() {
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4">
           <h3 className="text-sm font-semibold text-white mb-2">Capabilities</h3>
           <ul className="space-y-1.5 text-xs text-gray-400">
-            <li>• Groq: cloud LLM with live dashboard context (streaming)</li>
-            <li>• Local: Qwen2.5-0.5B + optional QLoRA at port 8001</li>
-            <li>• Infrastructure &amp; SRE guidance · INR cost hints</li>
-            <li>• Start server: <code className="text-cyan-500/90">cd ml/server &amp;&amp; uvicorn inference_server:app --port 8001</code></li>
+            <li>- Groq: cloud LLM with live dashboard context (streaming + tool approvals)</li>
+            <li>- Local: Qwen2.5-0.5B + optional QLoRA at port 8001</li>
+            <li>- Infrastructure and SRE guidance with INR cost hints</li>
+            <li>- Start server: <code className="text-cyan-500/90">cd ml/server &amp;&amp; uvicorn inference_server:app --port 8001</code></li>
           </ul>
         </div>
       </div>
