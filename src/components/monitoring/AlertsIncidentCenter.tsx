@@ -23,6 +23,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { PostMortemPanel } from '@/components/PostMortemPanel';
 import { formatTimeAgo, cn, severityColor, severityBgColor } from '@/lib/utils';
 import type { Alert, AlertSeverity, AlertStatus, AlertsFilter, AlertsSummary } from '@/types';
 
@@ -147,6 +148,8 @@ export function AlertsIncidentCenter() {
           />
         </div>
       )}
+
+      <PostMortemPanel />
 
       {/* ── Filters ────────────────────────────────────────── */}
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4">
@@ -532,3 +535,5 @@ function InfoRow({ label, value, fullWidth }: { label: string; value: string; fu
     </div>
   );
 }
+
+

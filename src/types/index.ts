@@ -386,3 +386,27 @@ export interface PaginatedResponse<T> {
   pageSize: number;
   hasMore: boolean;
 }
+
+export type IncidentSeverity = 'P1' | 'P2' | 'P3';
+
+export interface PostMortemTimelineEntry {
+  time: string;
+  event: string;
+}
+
+export interface PostMortemFollowUpAction {
+  action: string;
+  owner: string;
+  dueDate: string;
+}
+
+export interface IncidentPostMortem {
+  title: string;
+  severity: IncidentSeverity;
+  timeline: PostMortemTimelineEntry[];
+  rootCause: string;
+  impactedServices: string[];
+  resolutionSteps: string[];
+  followUpActions: PostMortemFollowUpAction[];
+  lessonsLearned: string;
+}
