@@ -6,9 +6,9 @@
     "test": 0.15
   },
   "counts": {
-    "train": 245,
-    "val": 39,
-    "test": 36
+    "train": 559,
+    "val": 110,
+    "test": 105
   },
   "filters": {
     "min_output_chars": 40,

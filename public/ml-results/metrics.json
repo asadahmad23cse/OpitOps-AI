@@ -1,64 +1,111 @@
 {
-  "title": "OptiOps SRE instruction model — assignment metrics",
+  "title": "OptiOps SRE instruction model \u2014 assignment metrics",
   "task": "Application-specific DevOps/SRE QA (concise remediation text)",
   "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
-  "disclaimer": "Placeholder example. After training, run ml/scripts/evaluate_baselines.py to overwrite with measured scores.",
   "split_manifest": {
     "seed": 42,
-    "ratios": { "train": 0.7, "val": 0.15, "test": 0.15 },
-    "counts": { "train": 245, "val": 39, "test": 36 },
-    "filters": { "min_output_chars": 40, "max_total_chars": 6000 }
+    "ratios": {
+      "train": 0.7,
+      "val": 0.15,
+      "test": 0.15
+    },
+    "counts": {
+      "train": 559,
+      "val": 110,
+      "test": 105
+    },
+    "filters": {
+      "min_output_chars": 40,
+      "max_total_chars": 6000
+    }
   },
   "metrics": [
     {
       "method": "pretrained_min",
-      "rouge1_f1": 0.214,
-      "rougeL_f1": 0.182,
-      "bleu": 6.4,
-      "n_samples": 36
+      "rouge1_f1": 0.1876,
+      "rougeL_f1": 0.123,
+      "bleu": 1.1559,
+      "n_samples": 8
     },
     {
       "method": "prompt_engineered",
-      "rouge1_f1": 0.268,
-      "rougeL_f1": 0.231,
-      "bleu": 8.7,
-      "n_samples": 36
+      "rouge1_f1": 0.1783,
+      "rougeL_f1": 0.1297,
+      "bleu": 0.6505,
+      "n_samples": 8
     },
     {
       "method": "qlora_finetuned",
-      "rouge1_f1": 0.312,
-      "rougeL_f1": 0.278,
-      "bleu": 10.5,
-      "n_samples": 36
+      "rouge1_f1": 0.2707,
+      "rougeL_f1": 0.2133,
+      "bleu": 1.6427,
+      "n_samples": 8
     }
   ],
-  "relative_improvement_rougeL_pct_vs_pretrained_min": 52.75,
+  "relative_improvement_rougeL_pct_vs_pretrained_min": 73.41,
   "qualitative": {
     "pretrained_min": {
       "lowest_rougeL_cases": [
         {
-          "rougeL_f1": 0.08,
-          "reference": "1) Verify Redis cluster node health and failover events. 2) Check connection pool sizing vs Redis maxclients.",
-          "prediction": "You should check the logs and restart the service if needed.",
-          "instruction": "We see repeated 503s from payment-api after deploy. Logs show connection reset to Redis.",
-          "category": "incident"
+          "rougeL_f1": 0.075,
+          "reference": "You add this flag in the start command `--apiserver-port=6443 `",
+          "prediction": "To fix the issue where the ports do not match, you can follow these steps:\n\n1. **Check the Port Configuration**: Ensure that the port numbers specified in your `docker-compose.yaml` file are correct and accessible through the Kubernetes API.\n\n2. **Verify the Kubernetes Cluster**: Confirm that the Kubernetes master (`172.26.90.122`) is running and accessible via the same IP address.\n\n3. **Update the `docker-compose.yaml`",
+          "instruction": "I'm using minikube to test the kompose. I installed k8s using the following minikube command `# minikube start --driver=none --kubernetes-version v1.16.0 minikube v1.9.2 on Ubuntu 18.04 \u2728 Using the none driver based on user configuration \ud83d\udc4d Starting control plane node in cluster minikube \ud83e\udd39 Running on localhost (CPUs=XX, Memory=XXXXXMB, Disk=XXXXXMB) ... \u2139\ufe0f OS release is Ubuntu 18.04.3 LTS \ud83d\udc33 Prepari",
+          "category": "deploy"
+        },
+        {
+          "rougeL_f1": 0.0964,
+          "reference": "Delete the pod normally; the ReplicaSet will recreate it.",
+          "prediction": "To delete a pod without deleting its replica set, you can use the `kubectl` command with the `-l` flag to specify the label selector for the pods that should be deleted. Here's an example:\n\n```\nkubectl delete -l my-label-selector=your-label-value\n```\n\nReplace `my-label-selector` with the actual label selector name and `your-label-value` with the desired value.\n\nFor instance, if you want to delete all pods in the \"active\"",
+          "instruction": "How do I delete a pod without deleting its ReplicaSet?",
+          "category": "database"
         }
       ]
     },
     "prompt_engineered": {
-      "lowest_rougeL_cases": []
+      "lowest_rougeL_cases": [
+        {
+          "rougeL_f1": 0.08,
+          "reference": "You add this flag in the start command `--apiserver-port=6443 `",
+          "prediction": "1. **Review Kubernetes Configuration**: Ensure your `docker-compose.yml` file includes all necessary services and deployments.\n2. **Check Port Mapping**: Verify that the `--port` flag is correctly set for each service.\n3. **Test Connectivity**: Use tools like `telnet`, `nc`, or `curl` to check if the ports are open and accessible.\n4. **Debugging**: Implement logging and debugging to identify where the issue lies.\n5. **Revert",
+          "instruction": "I'm using minikube to test the kompose. I installed k8s using the following minikube command `# minikube start --driver=none --kubernetes-version v1.16.0 minikube v1.9.2 on Ubuntu 18.04 \u2728 Using the none driver based on user configuration \ud83d\udc4d Starting control plane node in cluster minikube \ud83e\udd39 Running on localhost (CPUs=XX, Memory=XXXXXMB, Disk=XXXXXMB) ... \u2139\ufe0f OS release is Ubuntu 18.04.3 LTS \ud83d\udc33 Prepari",
+          "category": "deploy"
+        },
+        {
+          "rougeL_f1": 0.1157,
+          "reference": "I looked at this for my day job a while back and Cachex doesn't have a solution for dynamic node membership. It expects you to have all of your node names predefined and static. You can do this in Kubernetes with stateful sets, but you'll throw away all future possibility of autoscaling if you want to keep your cache distributed across all nodes. A better solution IMO is Nebulex . Nebulex is not concerned about managing the connection to your nodes or their membership. It is only concerned with keeping a cache distributed across `[Node.self() | Node.list()]` (all of the nodes in your cluster). It all runs over PG2 which is a distributed pubsub implementation. It has the ability to transfer data as nodes join or leave and will shard it so that you have duplicate data across your nodes. It even allows you to match on node names to store your cached data. To manage connecting your nodes to each other in a dynamic way, there's a library called libcluster that actually has Kubernetes support built in. Libcluster will either use Kubernetes DNS or you can create a headless service that will serve the IP addresses of all your elixir pods. Libcluster will ping this service on a polling inte",
+          "prediction": "1. **Identify the Nodes**: Determine which nodes you need to include in your `:nodes` list based on your application's requirements.\n2. **Create a New Config File**: Create a new configuration file that includes the `:nodes` list for your application.\n3. **Update the Cluster Configuration**: Update the existing Kubernetes configuration file to include the new `:nodes` list.\n4. **Apply the Changes**: Apply the changes to the Kubernetes cluster using the appropriate",
+          "instruction": "So I want to use Cachex to share temporary data across the cluster. Cachex takes a `:nodes` list in the config file. That worked great in testing, as I could just hard code `[:\"a@My-Laptop\", :\"b@My-Laptop\"]` and it worked, but with Kubernetes the names are dynamic. How would I set these?",
+          "category": "networking"
+        }
+      ]
     },
     "qlora_finetuned": {
-      "lowest_rougeL_cases": []
+      "lowest_rougeL_cases": [
+        {
+          "rougeL_f1": 0.0756,
+          "reference": "I looked at this for my day job a while back and Cachex doesn't have a solution for dynamic node membership. It expects you to have all of your node names predefined and static. You can do this in Kubernetes with stateful sets, but you'll throw away all future possibility of autoscaling if you want to keep your cache distributed across all nodes. A better solution IMO is Nebulex . Nebulex is not concerned about managing the connection to your nodes or their membership. It is only concerned with keeping a cache distributed across `[Node.self() | Node.list()]` (all of the nodes in your cluster). It all runs over PG2 which is a distributed pubsub implementation. It has the ability to transfer data as nodes join or leave and will shard it so that you have duplicate data across your nodes. It even allows you to match on node names to store your cached data. To manage connecting your nodes to each other in a dynamic way, there's a library called libcluster that actually has Kubernetes support built in. Libcluster will either use Kubernetes DNS or you can create a headless service that will serve the IP addresses of all your elixir pods. Libcluster will ping this service on a polling inte",
+          "prediction": "You can create an array of nodes like this: `cachex -n \"node1,node2\" -p 5000 -s 6000 -t 3000 ` This will create three pods that each have one node from the list. You can then pass them into your application using something like this: `cachex -n \"node1,node2\" -p 5000 -s 600",
+          "instruction": "So I want to use Cachex to share temporary data across the cluster. Cachex takes a `:nodes` list in the config file. That worked great in testing, as I could just hard code `[:\"a@My-Laptop\", :\"b@My-Laptop\"]` and it worked, but with Kubernetes the names are dynamic. How would I set these?",
+          "category": "networking"
+        },
+        {
+          "rougeL_f1": 0.1026,
+          "reference": "Yes, according to helm dependency docs : Starting from 2.2.0 , repository can be defined as the path to the directory of the dependency charts stored locally. The path should start with a prefix of \"file://\". For example, `# requirements.yaml dependencies: - name: nginx version: \"1.2.3\" repository: \"file://../dependency_chart/nginx\" ` If the dependency chart is retrieved locally, it is not required to have the repository added to helm by \"helm repo add\". Version matching is also supported for this case.",
+          "prediction": "You could use `spec.template.spec.containers` or `spec.template.spec.containers[*].args` to check if the container has an argument for the dependency. If so, then you can add that argument to your chart.",
+          "instruction": "Using helm I know you can disable a dependency in requirements.yaml using a condition . However, I have a dependency copied into the charts/ directory and expanded because I need more control over it. Is there is any way to conditionally include this dependency given that it's not included via requirements.yaml but rather through expanding in the charts/ folder?",
+          "category": "k8s"
+        }
+      ]
     }
   },
   "error_analysis": {
-    "hallucination_risk": "Small instruct models may invent resource sizes or regions not in the prompt. Mitigations: ground answers with RAG (Chroma KB in ml/scripts/seed_chroma.py), constrain outputs to given context, and keep humans in the loop for production changes.",
+    "hallucination_risk": "Small instruct models may invent resource sizes or regions not in the prompt. Mitigations: ground answers with RAG (Chroma KB), require the model to cite only given context, and keep humans in the loop for production changes.",
     "failure_modes": [
       "Over-generic checklists when the prompt omits observability signals.",
       "Omitting INR/cost angle unless the prompt or engineered system text asks for it.",
       "Under-specified rollback criteria for stateful deploy questions."
     ]
   },
-  "real_world_applicability": "The dashboard ML Lab surfaces these metrics for demos. Domain QLoRA improves alignment with OptiOps incident language; SQLite logs experiment rows; Chroma backs optional RAG over the incident knowledge file — matching how a real internal copilot would be shipped and regression-tested."
+  "real_world_applicability": "The same pipeline backs the OptiOps dashboard assistant: domain-tuned models reduce off-topic replies for incident triage, pair with vector retrieval from historical incident notes, and log eval metrics to SQLite for regression tracking."
 }

@@ -20,7 +20,10 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const clerkPk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
+  const authDisabled =
+    process.env.NEXT_PUBLIC_DISABLE_AUTH === "1" ||
+    process.env.NEXT_PUBLIC_DISABLE_AUTH?.toLowerCase() === "true";
+  const clerkPk = authDisabled ? "" : process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
 
   const app = (
     <QueryProvider>

@@ -30,6 +30,9 @@ async function checkModelEndpoint(baseUrl: string): Promise<{ ok: boolean; detai
 export async function GET() {
   const localModelBase = process.env.NEXT_PUBLIC_LOCAL_LLM_URL?.trim() || "http://localhost:8001";
   const modelHealth = await checkModelEndpoint(localModelBase);
+  const authDisabled =
+    process.env.NEXT_PUBLIC_DISABLE_AUTH === "1" ||
+    process.env.NEXT_PUBLIC_DISABLE_AUTH?.toLowerCase() === "true";
 
   const payload = {
     status: "ok",
@@ -39,6 +42,7 @@ export async function GET() {
       app: { ok: true, detail: "running" },
       groqApiKeyConfigured: Boolean(process.env.GROQ_API_KEY?.trim()),
       clerkConfigured:
+        !authDisabled &&
         Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim()) &&
         Boolean(process.env.CLERK_SECRET_KEY?.trim()),
       githubConfigured:
@@ -52,4 +56,3 @@ export async function GET() {
     headers: { "Cache-Control": "no-store" },
   });
 }
-
