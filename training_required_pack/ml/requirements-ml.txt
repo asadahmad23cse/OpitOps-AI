@@ -1,0 +1,23 @@
+# Python 3.10+ recommended. CUDA optional but strongly suggested for training.
+# Create venv: python -m venv .venv && .venv\Scripts\activate  (Windows)
+#
+# If bitsandbytes fails on Windows, use WSL2 + CUDA or train in Colab / cloud GPU.
+
+torch>=2.2.0
+transformers>=4.44.0
+accelerate>=0.33.0
+peft>=0.12.0
+bitsandbytes>=0.43.0; platform_system != "Windows"
+trl>=0.9.0
+datasets>=2.20.0
+sentencepiece>=0.2.0
+protobuf>=4.25.0
+
+# Metrics
+rouge-score>=0.1.2
+sacrebleu>=2.4.0
+
+# Storage
+chromadb>=0.5.0
+sentence-transformers>=3.0.0
+tqdm>=4.66.0

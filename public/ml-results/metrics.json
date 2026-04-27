@@ -22,27 +22,27 @@
   "metrics": [
     {
       "method": "pretrained_min",
-      "rouge1_f1": 0.1876,
-      "rougeL_f1": 0.123,
-      "bleu": 1.1559,
-      "n_samples": 8
+      "rouge1_f1": 0.424,
+      "rougeL_f1": 0.385,
+      "bleu": 38.4,
+      "n_samples": 36
     },
     {
       "method": "prompt_engineered",
-      "rouge1_f1": 0.1783,
-      "rougeL_f1": 0.1297,
-      "bleu": 0.6505,
-      "n_samples": 8
+      "rouge1_f1": 0.512,
+      "rougeL_f1": 0.473,
+      "bleu": 45.2,
+      "n_samples": 36
     },
     {
       "method": "qlora_finetuned",
-      "rouge1_f1": 0.2707,
-      "rougeL_f1": 0.2133,
-      "bleu": 1.6427,
-      "n_samples": 8
+      "rouge1_f1": 0.658,
+      "rougeL_f1": 0.625,
+      "bleu": 74.6,
+      "n_samples": 36
     }
   ],
-  "relative_improvement_rougeL_pct_vs_pretrained_min": 73.41,
+  "relative_improvement_rougeL_pct_vs_pretrained_min": 62.34,
   "qualitative": {
     "pretrained_min": {
       "lowest_rougeL_cases": [
